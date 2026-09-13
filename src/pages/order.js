@@ -10,11 +10,17 @@ import { loadCatalog } from '../lib/catalog.js';
 const STATUS = {
   awaiting_payment:  { label: 'Awaiting your payment', tone: 'amber' },
   payment_submitted: { label: 'Checking your payment', tone: 'sky' },
-  confirmed:         { label: 'Payment confirmed',     tone: 'green' },
+  confirmed:         { label: 'Preparing your order',  tone: 'sky' },
+  ready_for_pickup:  { label: 'Ready for pickup',      tone: 'green' },
+  shipped:           { label: 'Out for delivery',      tone: 'green' },
+  completed:         { label: 'Completed',             tone: 'green' },
   declined:          { label: 'Payment not found',     tone: 'red' },
-  fulfilled:         { label: 'Shipped',               tone: 'green' },
+  fulfilled:         { label: 'Shipped',               tone: 'green' }, // legacy
   cancelled:         { label: 'Cancelled',             tone: 'neutral' },
 };
+
+/** Statuses where the customer must show their handover code. */
+const NEEDS_CODE = new Set(['ready_for_pickup', 'shipped']);
 
 const TONE = {
   amber:   'bg-amber-50 text-amber-800 border-amber-200',
@@ -178,11 +184,70 @@ export async function orderPage({ id }) {
         <p class="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
           We matched your payment. Your order is being prepared.
         </p>` : ''}
+
+      ${NEEDS_CODE.has(order.status) ? `
+        <div class="card mt-4 border-brand-300 bg-brand-50 p-5">
+          <h2 class="font-semibold text-brand-900">
+            ${order.status === 'ready_for_pickup' ? 'Ready to collect' : 'Out for delivery'}
+          </h2>
+          <p class="mt-1 text-sm text-brand-900">
+            ${order.status === 'ready_for_pickup'
+              ? 'Show this code when you collect your order.'
+              : 'Give this code to the delivery driver.'}
+          </p>
+          <div id="code-box" class="mt-4 rounded-lg border border-brand-300 bg-white p-4 text-center">
+            <p id="code" class="font-mono text-3xl font-bold tracking-[0.3em] text-brand-700">••••••</p>
+          </div>
+          <button id="get-code" class="btn-secondary mt-3 w-full">Show my code</button>
+          <p class="mt-2 text-xs text-brand-900/70">
+            Only share it at the moment of handover — it confirms you received the order.
+          </p>
+        </div>` : ''}
+
+      ${order.status === 'completed' ? `
+        <p class="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          Order completed${order.completed_at
+            ? ` on ${new Date(order.completed_at).toLocaleDateString()}` : ''}. Thank you!
+        </p>` : ''}
       ${order.status === 'fulfilled' ? `
         <p class="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
           This order has shipped.
         </p>` : ''}
     </div>`);
+
+  // Handover code. The server returns it only at issue time, so it is cached
+  // locally for this order; "Show my code" re-issues if the cache is gone
+  // (new device, cleared storage), which invalidates any older code.
+  if (NEEDS_CODE.has(order.status)) {
+    const cacheKey = `ex.handover.${order.id}`;
+    const codeEl = document.getElementById('code');
+    const btn = document.getElementById('get-code');
+
+    const reveal = (code) => {
+      codeEl.textContent = code;
+      btn.textContent = 'Regenerate code';
+    };
+
+    let cached = null;
+    try { cached = localStorage.getItem(cacheKey); } catch { /* private mode */ }
+    if (cached) reveal(cached);
+
+    btn.addEventListener('click', async () => {
+      if (cached && !confirm('Generate a new code? Your current code will stop working.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+      const { data, error } = await supabase.rpc('issue_handover_code', { p_order_id: order.id });
+      btn.disabled = false;
+      if (error || !data?.ok) {
+        btn.textContent = 'Show my code';
+        toast('Could not generate a code. Try again.');
+        return;
+      }
+      cached = data.code;
+      try { localStorage.setItem(cacheKey, data.code); } catch { /* ignore */ }
+      reveal(data.code);
+    });
+  }
 
   if (!needsReceipt && !canReplace) return;
 
@@ -333,6 +398,7 @@ export async function ordersPage() {
   const { data: orders, error } = await supabase
     .from('orders')
     .select('id, order_number, status, total_cents, created_at, items')
+    .eq('user_id', getUser().id)  // 'Your orders' means purchases, not store orders
     .order('created_at', { ascending: false });
 
   if (error) return setView(errorView('Could not load your orders.'));

@@ -293,13 +293,24 @@ describe('RLS policy enforcement', { skip: configured ? false : 'no .env — ski
     assert.equal(r.body[0].status, 'confirmed');
   });
 
-  test('store owner CAN mark a confirmed order fulfilled', async () => {
+  test('store owner CAN hand off a confirmed order', async () => {
     const r = await rest(`orders?id=eq.${ids.order}`, {
       as: 'owner', method: 'PATCH', prefer: 'return=representation',
-      body: { status: 'fulfilled' },
+      body: { status: 'ready_for_pickup' },
     });
     assert.equal(r.status, 200, r.raw.slice(0, 200));
-    assert.equal(r.body[0].status, 'fulfilled');
+    assert.equal(r.body[0].status, 'ready_for_pickup');
+  });
+
+  test('store owner CANNOT skip straight to completed', async () => {
+    // Completion must go through complete_with_code(), which verifies the
+    // code the customer presents. See tests/handover.test.mjs.
+    await rest(`orders?id=eq.${ids.order}`, {
+      as: 'owner', method: 'PATCH', body: { status: 'completed' },
+    });
+    const check = await rest(`orders?select=status&id=eq.${ids.order}`, { as: 'owner' });
+    assert.notEqual(check.body[0].status, 'completed',
+      'store owner completed an order without the handover code');
   });
 
   test('customer CANNOT modify an order once confirmed', async () => {
