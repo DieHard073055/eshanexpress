@@ -1,0 +1,43 @@
+name: Supabase keepalive
+
+# Free-tier projects pause after ~7 days of inactivity, which takes the
+# storefront's auth and orders offline until manually resumed. A cheap
+# scheduled read keeps the project active.
+#
+# Requires repo secrets:
+#   SUPABASE_URL              https://<ref>.supabase.co
+#   SUPABASE_PUBLISHABLE_KEY  sb_publishable_...   (public, RLS-gated)
+
+on:
+  schedule:
+    - cron: '17 3 */3 * *' # every 3 days
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY secrets are not set."
+            exit 1
+          fi
+
+          code=$(curl -s -o /tmp/body -w '%{http_code}' \
+            "$URL/auth/v1/settings" -H "apikey: $KEY")
+
+          echo "auth/v1/settings -> $code"
+
+          # 200 means the project is awake. Anything else is worth failing on
+          # so the run shows up red rather than silently doing nothing.
+          if [ "$code" != "200" ]; then
+            echo "::error::Unexpected status $code"
+            head -c 400 /tmp/body
+            exit 1
+          fi
+
+          echo "Project is active."

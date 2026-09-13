@@ -9,6 +9,19 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
 
 Node 20+ (`.nvmrc` pins 20.20.2 — run `nvm use`).
 
+## Supabase
+
+Project `eshanexpress` (`wcnaiywglzpudivwxjss`), region ap-south-1 (Mumbai),
+free tier. The CLI is linked — `supabase` commands target it directly.
+
+Copy `.env.example` to `.env` and fill in the URL and publishable key from
+the dashboard (Settings → API). Both values are public and ship in the
+bundle; that is safe **only because RLS is enabled on every table**.
+
+> **Free projects pause after ~7 days of inactivity.** `.github/workflows/keepalive.yml`
+> pings every 3 days to prevent this. It needs repo secrets `SUPABASE_URL`
+> and `SUPABASE_PUBLISHABLE_KEY`.
+
 ## Commands
 
 ```bash
@@ -35,7 +48,7 @@ Prices are **integer cents** (`34900` = MVR 349.00). Never use floats for money.
 | 1. Scaffold + deploy workflow | done |
 | 2. Catalog pipeline | done |
 | 3. Storefront (listing, product, cart) | done |
-| 4. Supabase auth | not started |
+| 4. Supabase project + client | done (auth UI next) |
 | 5. Checkout + receipt upload + OCR | not started |
 | 6. Order history | not started |
 | 7. Store-owner portal | not started |
