@@ -341,3 +341,61 @@ can see and redirect early.
   but there is no automated refund path — refunds stay manual, as with payment.
 - **Revisit if manual click load hurts:** a checksummed payment reference
   (`EX-4417-K`) would collapse most matching ambiguity. Deliberately deferred.
+
+---
+
+## 9. Security model as built (step 4)
+
+RLS is enabled **and forced** on every table. Verified by `tests/rls.test.mjs`,
+a 38-case suite that attacks the live project over the public REST API with
+the publishable key — the same surface an attacker has.
+
+### Enforcement split
+
+RLS decides **which rows** an identity may touch. It cannot compare old vs new
+values, so **which columns** are writable is enforced by `BEFORE UPDATE`
+triggers:
+
+| Guard | Enforces |
+|---|---|
+| `guard_order_customer_update` | Customers may edit only `payment_reference` / receipt fields, only while unpaid. Store owners may only move `confirmed → fulfilled`. |
+| `guard_profile_update` | `role` and `store_id` are admin-only — blocks self-elevation. |
+
+### Verified properties
+
+- Anonymous visitors read `stores` and `stock_reservations` only — never
+  orders, profiles or drafts.
+- A customer cannot read another customer's order, forge `matched_txn_ref`,
+  alter `total_cents`, self-confirm, or become admin.
+- A store owner sees only their own store's orders, cannot confirm payment
+  (only the admin reconciles), and cannot self-approve a draft.
+- Trigger functions are not reachable as RPC endpoints.
+
+### Two things that bit, worth remembering
+
+1. **RLS policies evaluate as the calling role, not the table owner.**
+   Revoking `EXECUTE` on `is_admin()` from `authenticated` broke every policy
+   referencing it (`permission denied for function is_admin`). The helpers
+   must stay executable by `authenticated`; they are safe because each takes
+   no arguments and reads only the caller's own row.
+
+2. **`auth.uid()` in a policy re-evaluates per row.** All policies wrap it as
+   `(select auth.uid())`, which matters once `orders` grows.
+
+### Known weakness: client-supplied stock total
+
+`reserve_stock(p_sku, p_qty, p_total)` takes the inventory total from the
+client, because the catalog is static and the database has no copy of it. A
+crafted call can pass an inflated `p_total` and over-reserve.
+
+The blast radius is small — reservations only gate checkout, the admin
+reconciles every payment manually against the bank statement, and no goods
+ship without a confirmed transfer. Options if it matters later: sync a
+`sku -> total` table at deploy time (the honest fix), or ignore it, since
+over-reserving harms only the attacker's own checkout.
+
+### Outstanding
+
+- **Leaked password protection is disabled.** Enable it in the dashboard:
+  Authentication → Providers → Password → "Check against HaveIBeenPwned".
+  Free, and blocks known-breached passwords at signup.
