@@ -1,0 +1,14 @@
+{
+  "stores": [
+    {
+      "slug": "eshan-electronics",
+      "name": "Eshan Electronics",
+      "blurb": "Consumer electronics and accessories."
+    },
+    {
+      "slug": "island-textiles",
+      "name": "Island Textiles",
+      "blurb": "Clothing, bags and home goods."
+    }
+  ]
+}

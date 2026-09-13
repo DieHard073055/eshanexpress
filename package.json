@@ -1,0 +1,23 @@
+{
+  "name": "eshanexpress",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run catalog && vite",
+    "build": "npm run catalog && vite build",
+    "preview": "vite preview",
+    "catalog": "node scripts/build-catalog.mjs",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5",
+    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "vite": "^5.4.11"
+  }
+}

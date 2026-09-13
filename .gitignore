@@ -1,0 +1,16 @@
+# Bank statements — real financial data, never commit
+docs/samples/statement-sample.csv
+*statement*.csv
+*.ofx
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+node_modules/
+
+# OS
+.DS_Store
