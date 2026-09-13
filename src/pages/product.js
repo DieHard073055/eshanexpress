@@ -3,6 +3,7 @@ import { setCurrency, formatCents, discountPercent } from '../lib/money.js';
 import { setView, errorView, esc, toast } from '../components/layout.js';
 import { productCard } from '../components/product-card.js';
 import { add } from '../lib/cart.js';
+import { isPreorder, leadTimeLabel, preorderNotice } from '../lib/preorder.js';
 
 export async function productPage({ sku }) {
   let data;
@@ -30,7 +31,9 @@ export async function productPage({ sku }) {
   const store = data.stores.find((s) => s.slug === p.storeSlug);
   const off = discountPercent(p.priceCents, p.compareAtCents);
   const out = p.stockTotal <= 0;
-  const max = Math.max(p.stockTotal, 1);
+  const pre = isPreorder(p);
+  // A per-item cap on how many you are willing to source at once.
+  const max = Math.max(Math.min(p.stockTotal, p.maxPerOrder ?? Infinity), 1);
 
   const related = data.products
     .filter((r) => r.sku !== p.sku && (r.categories ?? []).some((c) => (p.categories ?? []).includes(c)))
@@ -77,18 +80,29 @@ export async function productPage({ sku }) {
                <span class="rounded bg-brand-50 px-1.5 py-0.5 text-xs font-bold text-brand-700">-${off}%</span>` : ''}
         </div>
 
-        <p class="mt-3 text-sm ${out ? 'text-red-600' : p.stockTotal <= 5 ? 'text-amber-600' : 'text-green-700'}">
-          ${out ? 'Out of stock' : p.stockTotal <= 5 ? `Only ${p.stockTotal} left` : 'In stock'}
-        </p>
+        ${pre && !out
+          ? `<div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3">
+               <p class="flex items-center gap-1.5 text-sm font-semibold text-sky-800">
+                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                   <circle cx="12" cy="12" r="9" /><path stroke-linecap="round" d="M12 7v5l3 2" />
+                 </svg>
+                 Preorder — ships in ${leadTimeLabel(p.leadTimeDays)}
+               </p>
+               <p class="mt-1 text-xs leading-relaxed text-sky-900">${esc(preorderNotice(p))}</p>
+             </div>`
+          : `<p class="mt-3 text-sm ${out ? 'text-red-600' : p.stockTotal <= 5 ? 'text-amber-600' : 'text-green-700'}">
+               ${out ? 'Out of stock' : p.stockTotal <= 5 ? `Only ${p.stockTotal} left` : 'In stock'}
+             </p>`}
 
         <div class="mt-6 flex items-center gap-3">
           <label for="qty" class="text-sm text-neutral-600">Qty</label>
           <input id="qty" type="number" min="1" max="${max}" value="1" ${out ? 'disabled' : ''}
                  class="w-20 rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+          ${p.maxPerOrder ? `<span class="text-xs text-neutral-500">Max ${p.maxPerOrder} per order</span>` : ''}
         </div>
 
         <button id="add" class="btn-primary mt-4 w-full sm:w-auto sm:px-10" ${out ? 'disabled' : ''}>
-          ${out ? 'Out of stock' : 'Add to cart'}
+          ${out ? 'Out of stock' : pre ? 'Preorder now' : 'Add to cart'}
         </button>
 
         <p class="mt-3 text-xs text-neutral-500">

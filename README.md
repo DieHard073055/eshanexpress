@@ -41,6 +41,29 @@ npm run catalog   # rebuild catalog only
 
 Prices are **integer cents** (`34900` = MVR 349.00). Never use floats for money.
 
+### Preorder items
+
+For goods ordered from overseas, add two fields:
+
+```json
+{ "sku": "EX-4001", "stockTotal": 15, "leadTimeDays": 35, "maxPerOrder": 2 }
+```
+
+- `leadTimeDays` drives all preorder messaging automatically (badges on the
+  card, product page, and cart) — you never write it in the description.
+- `maxPerOrder` caps how many one customer can order at once.
+- `stockTotal` is your soft cap: how many you are willing to source.
+
+`stockTotal: 0` still means **sold out**, not preorder.
+
+### Stock authority
+
+The database owns inventory at checkout. `scripts/sync-stock.mjs` pushes
+totals to Supabase on every deploy; `reserve_cart()` reads them and accepts
+no total from the client. The deploy needs a `SUPABASE_SECRET_KEY` repo
+secret — without it the sync is skipped with a warning and checkout uses
+whatever totals the database already holds.
+
 ## What is built
 
 | Step | Status |

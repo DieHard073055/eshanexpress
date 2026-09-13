@@ -67,6 +67,23 @@ for (const [i, p] of products.entries()) {
   if (!Number.isInteger(p.stockTotal)) fail(`${at}: "stockTotal" must be an integer`);
   else if (p.stockTotal < 0) fail(`${at}: "stockTotal" cannot be negative`);
 
+  // Preorder items: a soft cap you are willing to order from overseas.
+  if (p.leadTimeDays != null) {
+    if (!Number.isInteger(p.leadTimeDays) || p.leadTimeDays <= 0)
+      fail(`${at}: "leadTimeDays" must be a positive integer`);
+    else if (p.leadTimeDays < 7)
+      warn(`${at}: leadTimeDays is only ${p.leadTimeDays} — preorder messaging may confuse buyers`);
+    if (p.stockTotal === 0)
+      warn(`${at}: preorder item has stockTotal 0, so it shows as sold out`);
+  }
+
+  if (p.maxPerOrder != null) {
+    if (!Number.isInteger(p.maxPerOrder) || p.maxPerOrder <= 0)
+      fail(`${at}: "maxPerOrder" must be a positive integer`);
+    else if (p.maxPerOrder > p.stockTotal && p.stockTotal > 0)
+      warn(`${at}: maxPerOrder (${p.maxPerOrder}) exceeds stockTotal (${p.stockTotal})`);
+  }
+
   if (!Array.isArray(p.images) || p.images.length === 0) fail(`${at}: needs at least one image`);
   else {
     for (const img of p.images) {
@@ -144,15 +161,28 @@ const index = {
   buildId,
   currency,
   stores,
-  products: enriched.map(({ sku, title, storeSlug, priceCents, compareAtCents, stockTotal, categories, images, inStock }) => ({
+  products: enriched.map(({ sku, title, storeSlug, priceCents, compareAtCents, stockTotal,
+                            categories, images, inStock, leadTimeDays, maxPerOrder }) => ({
     sku, title, storeSlug, priceCents, compareAtCents, stockTotal, categories,
-    inStock,
+    inStock, leadTimeDays, maxPerOrder,
     thumb: images[0],
   })),
 };
 
 writeFileSync(join(OUT, 'catalog.json'), JSON.stringify(catalog));
 writeFileSync(join(OUT, 'index.json'), JSON.stringify(index));
+
+// Stock manifest consumed by scripts/sync-stock.mjs at deploy time. The
+// database — not the client — is the authority on inventory at checkout.
+writeFileSync(
+  join(OUT, '..', 'stock-manifest.json'),
+  JSON.stringify(
+    products.map(({ sku, stockTotal, leadTimeDays, maxPerOrder }) => ({
+      sku, total: stockTotal, leadTimeDays: leadTimeDays ?? null, maxPerOrder: maxPerOrder ?? null,
+    })),
+    null, 2,
+  ),
+);
 
 // -------------------------------------------------------------------- report
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;

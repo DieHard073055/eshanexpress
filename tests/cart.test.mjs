@@ -15,6 +15,9 @@ const catalog = new Map([
   ['EX-1001', { sku: 'EX-1001', title: 'Earbuds', priceCents: 34900, stockTotal: 24 }],
   ['EX-2002', { sku: 'EX-2002', title: 'Bottle', priceCents: 12000, stockTotal: 0 }],
   ['EX-3001', { sku: 'EX-3001', title: 'Lamp', priceCents: 29900, stockTotal: 7 }],
+  // Preorder: soft cap of 15, max 2 per order, 35-day lead time.
+  ['EX-4001', { sku: 'EX-4001', title: 'Robot Vacuum', priceCents: 489000,
+                stockTotal: 15, maxPerOrder: 2, leadTimeDays: 35 }],
 ]);
 
 beforeEach(() => store.clear());
@@ -95,4 +98,35 @@ test('subscribers are notified on change', () => {
   off();
   cart.add('EX-1001', 1, 24);
   assert.equal(fired, 2); // not 3 — unsubscribed before the last
+});
+
+// --------------------------------------------------------------- preorder
+test('preorder line carries lead time and per-order cap', () => {
+  cart.add('EX-4001', 1, 15);
+  const { items } = cart.resolve(catalog);
+  assert.equal(items[0].leadTimeDays, 35);
+  assert.equal(items[0].maxPerOrder, 2);
+});
+
+test('resolve clamps to maxPerOrder, not just stockTotal', () => {
+  // 15 in stock but only 2 allowed per order.
+  store.set('ex.cart.v1', JSON.stringify([{ sku: 'EX-4001', qty: 9 }]));
+  const { items } = cart.resolve(catalog);
+  assert.equal(items[0].qty, 2, 'per-order cap must win over stockTotal');
+  assert.equal(items[0].clamped, true);
+  assert.equal(items[0].requestedQty, 9);
+});
+
+test('maxPerOrder does not inflate a low stock count', () => {
+  const low = new Map([['EX-5001',
+    { sku: 'EX-5001', title: 'Rare', priceCents: 1000, stockTotal: 1, maxPerOrder: 5 }]]);
+  store.set('ex.cart.v1', JSON.stringify([{ sku: 'EX-5001', qty: 5 }]));
+  const { items } = cart.resolve(low);
+  assert.equal(items[0].qty, 1, 'stockTotal must still cap the line');
+});
+
+test('non-preorder items report null lead time', () => {
+  cart.add('EX-1001', 1, 24);
+  const { items } = cart.resolve(catalog);
+  assert.equal(items[0].leadTimeDays, null);
 });

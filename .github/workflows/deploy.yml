@@ -42,6 +42,20 @@ jobs:
         # GitHub Pages 404s unknown paths; serving index.html keeps deep links working.
         run: cp dist/index.html dist/404.html
 
+      # The database is the authority on stock at checkout, so it must match
+      # the catalog being published. Uses the SECRET key — never in the bundle.
+      - name: Sync stock to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::warning::SUPABASE_SECRET_KEY not set — skipping stock sync."
+            echo "Checkout will use whatever totals are already in the database."
+            exit 0
+          fi
+          node scripts/sync-stock.mjs
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

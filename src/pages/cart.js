@@ -2,6 +2,7 @@ import { loadCatalog, bySku, imgAttrs } from '../lib/catalog.js';
 import { setCurrency, formatCents } from '../lib/money.js';
 import { setView, errorView, esc, toast } from '../components/layout.js';
 import { resolve, setQty, remove, clear } from '../lib/cart.js';
+import { leadTimeLabel } from '../lib/preorder.js';
 
 export async function cartPage() {
   let data;
@@ -32,6 +33,11 @@ export async function cartPage() {
 
   const unavailable = items.filter((i) => i.qty === 0);
   const buyable = items.filter((i) => i.qty > 0);
+
+  // A mixed cart ships at the pace of its slowest item — say so plainly
+  // rather than letting the customer discover it after paying.
+  const preorders = buyable.filter((i) => i.leadTimeDays);
+  const longest = preorders.reduce((m, i) => Math.max(m, i.leadTimeDays), 0);
 
   setView(`
     ${stale.length ? staleNotice(stale) : ''}
@@ -65,6 +71,14 @@ export async function cartPage() {
             <p class="mt-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
               ${unavailable.length} item${unavailable.length === 1 ? ' is' : 's are'} out of stock and
               will not be ordered.
+            </p>` : ''}
+
+          ${longest ? `
+            <p class="mt-3 rounded-lg bg-sky-50 p-2.5 text-xs leading-relaxed text-sky-900">
+              ${preorders.length === buyable.length
+                ? `This is a preorder. It ships in ${leadTimeLabel(longest)}.`
+                : `${preorders.length} item${preorders.length === 1 ? ' is a preorder' : 's are preorders'}.
+                   The whole order ships together in ${leadTimeLabel(longest)}.`}
             </p>` : ''}
 
           <button id="checkout" class="btn-primary mt-5 w-full" ${buyable.length === 0 ? 'disabled' : ''}>
@@ -132,8 +146,15 @@ function row(i) {
         ${out
           ? `<p class="mt-1 text-xs font-medium text-red-600">Out of stock</p>`
           : i.clamped
-            ? `<p class="mt-1 text-xs text-amber-600">Only ${i.stockTotal} available — quantity reduced</p>`
+            ? `<p class="mt-1 text-xs text-amber-600">${
+                i.maxPerOrder && i.requestedQty > i.maxPerOrder
+                  ? `Max ${i.maxPerOrder} per order — quantity reduced`
+                  : `Only ${i.stockTotal} available — quantity reduced`
+              }</p>`
             : ''}
+        ${i.leadTimeDays && !out
+          ? `<p class="mt-1 text-xs font-medium text-sky-700">Preorder · ships in ${leadTimeLabel(i.leadTimeDays)}</p>`
+          : ''}
 
         <div class="mt-auto flex items-center gap-3 pt-2">
           <label class="sr-only" for="q-${i.sku}">Quantity for ${esc(i.title)}</label>

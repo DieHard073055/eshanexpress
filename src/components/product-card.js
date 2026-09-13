@@ -1,12 +1,14 @@
 import { formatCents, discountPercent } from '../lib/money.js';
 import { imgAttrs } from '../lib/catalog.js';
 import { esc } from './layout.js';
+import { isPreorder, leadTimeLabel } from '../lib/preorder.js';
 
 export function productCard(p) {
   const img = imgAttrs(p.thumb);
   const off = discountPercent(p.priceCents, p.compareAtCents);
   const out = !p.inStock;
-  const low = p.inStock && p.stockTotal <= 5;
+  const pre = isPreorder(p);
+  const low = p.inStock && !pre && p.stockTotal <= 5;
 
   return `
     <a href="#/product/${encodeURIComponent(p.sku)}"
@@ -17,6 +19,7 @@ export function productCard(p) {
              class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105
                     ${out ? 'opacity-50' : ''}" />
         ${off ? `<span class="absolute left-2 top-2 rounded bg-brand-600 px-1.5 py-0.5 text-[11px] font-bold text-white">-${off}%</span>` : ''}
+        ${pre && !out ? `<span class="absolute right-2 top-2 rounded bg-sky-600 px-1.5 py-0.5 text-[11px] font-bold text-white">Preorder</span>` : ''}
         ${out ? `<span class="absolute inset-x-0 bottom-0 bg-neutral-900/75 py-1 text-center text-xs font-semibold text-white">Out of stock</span>` : ''}
       </div>
 
@@ -29,7 +32,11 @@ export function productCard(p) {
               ? `<span class="text-xs text-neutral-400 line-through">${formatCents(p.compareAtCents)}</span>`
               : ''}
           </div>
-          ${low ? `<p class="mt-1 text-[11px] font-medium text-amber-600">Only ${p.stockTotal} left</p>` : ''}
+          ${pre && !out
+            ? `<p class="mt-1 text-[11px] font-medium text-sky-700">Ships in ${leadTimeLabel(p.leadTimeDays)}</p>`
+            : low
+              ? `<p class="mt-1 text-[11px] font-medium text-amber-600">Only ${p.stockTotal} left</p>`
+              : ''}
         </div>
       </div>
     </a>`;

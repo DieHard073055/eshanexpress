@@ -1,0 +1,44 @@
+[
+  {
+    "sku": "EX-1001",
+    "total": 24,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-1002",
+    "total": 40,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-2001",
+    "total": 12,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-2002",
+    "total": 0,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-4001",
+    "total": 15,
+    "leadTimeDays": 35,
+    "maxPerOrder": 2
+  },
+  {
+    "sku": "EX-3001",
+    "total": 7,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-3002",
+    "total": 30,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  }
+]

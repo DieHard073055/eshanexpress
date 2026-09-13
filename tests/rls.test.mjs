@@ -70,6 +70,20 @@ describe('RLS policy enforcement', { skip: configured ? false : 'no .env — ski
     const stores = await rest('stores?select=id,slug');
     ids.storeElectronics = stores.body.find((s) => s.slug === 'eshan-electronics').id;
     ids.storeTextiles    = stores.body.find((s) => s.slug === 'island-textiles').id;
+
+    // Provision stock fixtures as admin. The deploy-time sync purges SKUs
+    // that are not in the catalog, so the suite must create its own rather
+    // than depend on rows surviving between runs.
+    await rest('stock_reservations?sku=like.RLS-*', { as: 'admin', method: 'DELETE' });
+    await rest('product_stock?sku=like.RLS-*',      { as: 'admin', method: 'DELETE' });
+    await rest('product_stock', {
+      as: 'admin', method: 'POST', prefer: 'return=minimal',
+      body: [
+        { sku: 'RLS-CAP',    total: 4,  lead_time_days: null, max_per_order: null },
+        { sku: 'RLS-PRE',    total: 15, lead_time_days: 35,   max_per_order: 2 },
+        { sku: 'RLS-ATOMIC', total: 9,  lead_time_days: null, max_per_order: null },
+      ],
+    });
   });
 
   // ------------------------------------------------------------- anonymous
@@ -306,24 +320,83 @@ describe('RLS policy enforcement', { skip: configured ? false : 'no .env — ski
   });
 
   // ------------------------------------------------------------ stock RPC
-  test('reserve_stock enforces the cap', async () => {
-    const sku = `TEST-${Date.now()}`;
-    const ok = await rest('rpc/reserve_stock', {
-      as: 'customer', method: 'POST', body: { p_sku: sku, p_qty: 3, p_total: 5 },
+  test('reserve_stock no longer accepts a client-supplied total', async () => {
+    // The old vulnerable signature must be gone entirely.
+    const r = await rest('rpc/reserve_stock', {
+      as: 'customer', method: 'POST',
+      body: { p_sku: 'EX-1001', p_qty: 1, p_total: 999999 },
     });
-    assert.equal(ok.body, true, 'first reservation should succeed');
+    assert.ok(r.status >= 400,
+      'the 3-argument signature still exists — clients can still inflate the total');
+  });
+
+  test('reserve_stock uses the server-side total', async () => {
+    const ok = await rest('rpc/reserve_stock', {
+      as: 'customer', method: 'POST', body: { p_sku: 'RLS-CAP', p_qty: 2 },
+    });
+    assert.equal(ok.body.ok, true, JSON.stringify(ok.body));
 
     const over = await rest('rpc/reserve_stock', {
-      as: 'customer', method: 'POST', body: { p_sku: sku, p_qty: 3, p_total: 5 },
+      as: 'customer', method: 'POST', body: { p_sku: 'RLS-CAP', p_qty: 5 },
     });
-    assert.equal(over.body, false, 'reservation beyond the cap must fail');
+    assert.equal(over.body.ok, false);
+    assert.equal(over.body.reason, 'insufficient_stock');
+  });
+
+  test('reserve_stock rejects an unknown sku', async () => {
+    const r = await rest('rpc/reserve_stock', {
+      as: 'customer', method: 'POST', body: { p_sku: 'NOT-A-REAL-SKU', p_qty: 1 },
+    });
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.reason, 'unknown_sku');
+  });
+
+  test('reserve_stock enforces max_per_order', async () => {
+    const r = await rest('rpc/reserve_stock', {
+      as: 'customer', method: 'POST', body: { p_sku: 'RLS-PRE', p_qty: 3 },
+    });
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.reason, 'exceeds_max_per_order');
   });
 
   test('reserve_stock rejects non-positive quantities', async () => {
     const r = await rest('rpc/reserve_stock', {
-      as: 'customer', method: 'POST', body: { p_sku: 'EX-1001', p_qty: -5, p_total: 10 },
+      as: 'customer', method: 'POST', body: { p_sku: 'RLS-CAP', p_qty: -5 },
     });
     assert.ok(r.status >= 400, 'negative quantity must be rejected');
+  });
+
+  test('reserve_cart is all-or-nothing', async () => {
+    const before = await rest('stock_availability?select=sku,reserved&sku=eq.RLS-ATOMIC');
+    const startReserved = before.body[0]?.reserved ?? 0;
+
+    // Second line exceeds stock, so NOTHING should be reserved.
+    const r = await rest('rpc/reserve_cart', {
+      as: 'customer', method: 'POST',
+      body: { p_items: [{ sku: 'RLS-ATOMIC', qty: 1 }, { sku: 'RLS-CAP', qty: 9999 }] },
+    });
+    assert.equal(r.body.ok, false, 'cart with an impossible line must fail');
+
+    const after = await rest('stock_availability?select=sku,reserved&sku=eq.RLS-ATOMIC');
+    assert.equal(after.body[0].reserved, startReserved,
+      'partial reservation leaked from a failed cart');
+  });
+
+  test('anonymous cannot call reserve_cart', async () => {
+    const r = await rest('rpc/reserve_cart', {
+      method: 'POST', body: { p_items: [{ sku: 'RLS-CAP', qty: 1 }] },
+    });
+    assert.ok(r.status >= 400, 'reserve_cart is callable anonymously');
+  });
+
+  test('stock_availability is publicly readable but product_stock is not writable', async () => {
+    const read = await rest('stock_availability?select=sku,available&limit=1');
+    assert.equal(read.status, 200, 'storefront needs to read availability');
+
+    const write = await rest('product_stock', {
+      as: 'customer', method: 'POST', body: { sku: 'HACK-STOCK', total: 99999 },
+    });
+    assert.ok(write.status >= 400, 'customer wrote to product_stock');
   });
 
   // ------------------------------------------------- internal functions

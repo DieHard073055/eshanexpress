@@ -49,6 +49,19 @@
       "specs": { "Capacity": "1000ml", "Material": "304 stainless steel" }
     },
     {
+      "sku": "EX-4001",
+      "title": "Robot Vacuum with Lidar Mapping",
+      "storeSlug": "eshan-electronics",
+      "priceCents": 489000,
+      "stockTotal": 15,
+      "leadTimeDays": 35,
+      "maxPerOrder": 2,
+      "categories": ["home", "electronics"],
+      "images": ["vacuum-1.jpg"],
+      "description": "Lidar-guided robot vacuum with room mapping and a self-emptying base.",
+      "specs": { "Suction": "4000Pa", "Battery": "5200mAh", "Mapping": "Lidar" }
+    },
+    {
       "sku": "EX-3001",
       "title": "LED Desk Lamp with Wireless Charging",
       "storeSlug": "eshan-electronics",

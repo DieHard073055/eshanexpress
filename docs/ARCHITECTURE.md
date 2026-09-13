@@ -382,17 +382,39 @@ triggers:
 2. **`auth.uid()` in a policy re-evaluates per row.** All policies wrap it as
    `(select auth.uid())`, which matters once `orders` grows.
 
-### Known weakness: client-supplied stock total
+### Stock authority (fixed)
 
-`reserve_stock(p_sku, p_qty, p_total)` takes the inventory total from the
-client, because the catalog is static and the database has no copy of it. A
-crafted call can pass an inflated `p_total` and over-reserve.
+`reserve_stock` originally took the inventory total from the client, so a
+crafted call could inflate it and over-reserve. **Closed.** The `product_stock`
+table now owns totals, synced from the catalog on every deploy by
+`scripts/sync-stock.mjs` using the secret key. The RPC takes only `(sku, qty)`;
+the old three-argument signature no longer exists, and a test asserts that.
 
-The blast radius is small — reservations only gate checkout, the admin
-reconciles every payment manually against the bank statement, and no goods
-ship without a confirmed transfer. Options if it matters later: sync a
-`sku -> total` table at deploy time (the honest fix), or ignore it, since
-over-reserving harms only the attacker's own checkout.
+`reserve_cart(items)` reserves a whole cart in one transaction and rolls back
+**every** line if any line fails, so a failed checkout cannot strand partial
+reservations. SKUs are locked in sorted order to avoid deadlocks between
+concurrent carts.
+
+The sync never deletes a delisted SKU that still has live reservations —
+doing so would silently free stock held by an open order.
+
+### Preorder items
+
+Items sourced from overseas carry `leadTimeDays` and a `maxPerOrder` soft cap
+in `products.json`. Stock behaves normally; only the presentation differs:
+
+- Listing card: a "Preorder" badge and "Ships in about N weeks"
+- Product page: a notice explaining payment is taken now
+- Cart: a per-line badge, plus a banner stating the whole order ships together
+  at the pace of its slowest item
+
+Lead-time wording is derived from `leadTimeDays`, so it cannot be forgotten in
+an individual product description. `maxPerOrder` is enforced in three places:
+the quantity input, `cart.resolve()`, and `reserve_cart` server-side.
+
+> **Policy assumption to confirm:** the cart says a mixed order "ships
+> together" at the slowest item's pace. If you would rather split shipments,
+> the wording and the fulfilment flow both need changing.
 
 ### Outstanding
 

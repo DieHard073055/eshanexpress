@@ -60,9 +60,10 @@ export function resolve(productsBySku) {
       stale.push(line.sku);
       continue;
     }
-    // Clamp to what the static catalog says exists. Live availability is
-    // re-checked at checkout, where it can be enforced properly.
-    const qty = Math.min(line.qty, Math.max(product.stockTotal, 0));
+    // Clamp to what the static catalog says exists, and to any per-order cap.
+    // Live availability is re-checked server-side at checkout.
+    const cap = Math.min(product.stockTotal, product.maxPerOrder ?? Infinity);
+    const qty = Math.min(line.qty, Math.max(cap, 0));
     items.push({
       sku: product.sku,
       title: product.title,
@@ -71,6 +72,8 @@ export function resolve(productsBySku) {
       requestedQty: line.qty,
       clamped: qty < line.qty,
       stockTotal: product.stockTotal,
+      maxPerOrder: product.maxPerOrder ?? null,
+      leadTimeDays: product.leadTimeDays ?? null,
       thumb: product.thumb ?? product.images?.[0],
       lineTotalCents: product.priceCents * qty,
     });
