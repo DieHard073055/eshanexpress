@@ -1,4 +1,6 @@
 import { count, onCartChange } from '../lib/cart.js';
+import { getUser } from '../lib/auth.js';
+import { isConfigured } from '../lib/supabase.js';
 
 /** Escape untrusted strings before they touch innerHTML. */
 export function esc(s) {
@@ -22,6 +24,12 @@ export function header() {
                         placeholder:text-neutral-400 focus:border-brand-500 focus:bg-white" />
         </form>
 
+        <a id="account-link" href="#/signin"
+           class="hidden shrink-0 rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 sm:block"
+           aria-label="Account">
+          <span id="account-label" class="text-sm font-medium">Sign in</span>
+        </a>
+
         <a href="#/cart" class="relative shrink-0 rounded-lg p-2 hover:bg-neutral-100" aria-label="Cart">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -44,6 +52,19 @@ export function footer() {
         <p class="mt-1">Payment by bank transfer. Upload your receipt at checkout.</p>
       </div>
     </footer>`;
+}
+
+export function refreshAuthUi() {
+  const link = document.getElementById('account-link');
+  const label = document.getElementById('account-label');
+  if (!link || !label) return;
+  // Hidden entirely when Supabase is not configured, so the header never
+  // offers sign-in that cannot work.
+  link.classList.toggle('hidden', !isConfigured);
+  if (!isConfigured) return;
+  const user = getUser();
+  link.href = user ? '#/account' : '#/signin';
+  label.textContent = user ? 'Account' : 'Sign in';
 }
 
 export function refreshCartBadge() {

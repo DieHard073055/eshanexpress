@@ -3,6 +3,7 @@ import { setCurrency, formatCents } from '../lib/money.js';
 import { setView, errorView, esc, toast } from '../components/layout.js';
 import { resolve, setQty, remove, clear } from '../lib/cart.js';
 import { leadTimeLabel } from '../lib/preorder.js';
+import { navigate } from '../lib/router.js';
 
 export async function cartPage() {
   let data;
@@ -115,8 +116,7 @@ export async function cartPage() {
   });
 
   document.getElementById('checkout')?.addEventListener('click', () => {
-    // Checkout arrives in step 5 (auth + orders + receipt upload).
-    toast('Checkout is coming next — cart is ready.');
+    navigate('/checkout');
   });
 }
 
