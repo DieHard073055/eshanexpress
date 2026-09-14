@@ -130,3 +130,27 @@ test('non-preorder items report null lead time', () => {
   const { items } = cart.resolve(catalog);
   assert.equal(items[0].leadTimeDays, null);
 });
+
+// ---------------------------------------------------------------- variants
+test('a variant line carries its choices and parent sku', () => {
+  const idx = new Map([['EX-5001-BLK-MIC', {
+    sku: 'EX-5001-BLK-MIC', parentSku: 'EX-5001', title: 'KZ EDX Pro',
+    priceCents: 11584, stockTotal: 709, choices: { Colour: 'Black', Mic: 'With mic' },
+  }]]);
+  store.set('ex.cart.v1', JSON.stringify([{ sku: 'EX-5001-BLK-MIC', qty: 2 }]));
+  const { items, subtotalCents } = cart.resolve(idx);
+  assert.equal(items[0].parentSku, 'EX-5001');
+  assert.deepEqual(items[0].choices, { Colour: 'Black', Mic: 'With mic' });
+  assert.equal(subtotalCents, 23168, 'variant price, not parent price');
+});
+
+test('a parent sku left in the cart is reported stale, not silently priced', () => {
+  // Happens when a simple product later gains variants.
+  const idx = new Map([['EX-5001-BLK-MIC', {
+    sku: 'EX-5001-BLK-MIC', parentSku: 'EX-5001', title: 'KZ', priceCents: 11584, stockTotal: 709,
+  }]]);
+  store.set('ex.cart.v1', JSON.stringify([{ sku: 'EX-5001', qty: 1 }]));
+  const { items, stale } = cart.resolve(idx);
+  assert.equal(items.length, 0);
+  assert.deepEqual(stale, ['EX-5001'], 'parent sku must never resolve to a price');
+});

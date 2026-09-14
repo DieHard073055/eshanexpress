@@ -74,6 +74,10 @@ export function resolve(productsBySku) {
       stockTotal: product.stockTotal,
       maxPerOrder: product.maxPerOrder ?? null,
       leadTimeDays: product.leadTimeDays ?? null,
+      // Present on variant lines so the cart can show what was chosen and
+      // link back to the parent product page.
+      choices: product.choices ?? null,
+      parentSku: product.parentSku ?? null,
       thumb: product.thumb ?? product.images?.[0],
       lineTotalCents: product.priceCents * qty,
     });

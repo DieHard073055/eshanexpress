@@ -133,14 +133,15 @@ function row(i) {
   const out = i.qty === 0;
   return `
     <div class="card flex gap-3 p-3 ${out ? 'opacity-60' : ''}">
-      <a href="#/product/${encodeURIComponent(i.sku)}" class="shrink-0">
+      <a href="#/product/${encodeURIComponent(i.parentSku ?? i.sku)}" class="shrink-0">
         <img src="${img.src}" alt="${esc(img.alt)}" class="h-24 w-24 rounded-lg object-cover" />
       </a>
 
       <div class="flex min-w-0 flex-1 flex-col">
-        <a href="#/product/${encodeURIComponent(i.sku)}" class="line-clamp-2 text-sm font-medium hover:text-brand-600">
+        <a href="#/product/${encodeURIComponent(i.parentSku ?? i.sku)}" class="line-clamp-2 text-sm font-medium hover:text-brand-600">
           ${esc(i.title)}
         </a>
+        ${i.choices ? `<p class="mt-0.5 text-xs text-neutral-500">${esc(Object.values(i.choices).join(' · '))}</p>` : ''}
         <p class="mt-0.5 text-sm text-neutral-500">${formatCents(i.priceCents)} each</p>
 
         ${out

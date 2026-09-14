@@ -40,5 +40,29 @@
     "total": 30,
     "leadTimeDays": null,
     "maxPerOrder": null
+  },
+  {
+    "sku": "EX-5001-BLK-MIC",
+    "total": 709,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-5001-BLK-NOM",
+    "total": 1102,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-5001-CYN-MIC",
+    "total": 1127,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "EX-5001-CYN-NOM",
+    "total": 0,
+    "leadTimeDays": null,
+    "maxPerOrder": null
   }
 ]

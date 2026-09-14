@@ -27,7 +27,9 @@ export function productCard(p) {
         <h3 class="line-clamp-2 text-sm text-neutral-800 group-hover:text-brand-700">${esc(p.title)}</h3>
         <div class="mt-auto pt-2">
           <div class="flex items-baseline gap-1.5">
-            <span class="text-base font-bold text-brand-600">${formatCents(p.priceCents)}</span>
+            ${p.priceFrom != null
+              ? `<span class="text-xs text-neutral-500">from</span>` : ''}
+            <span class="text-base font-bold text-brand-600">${formatCents(p.priceFrom ?? p.priceCents)}</span>
             ${p.compareAtCents && p.compareAtCents > p.priceCents
               ? `<span class="text-xs text-neutral-400 line-through">${formatCents(p.compareAtCents)}</span>`
               : ''}

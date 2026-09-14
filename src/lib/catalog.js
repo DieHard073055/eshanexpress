@@ -24,8 +24,37 @@ export function loadCatalog() {
   return catalogPromise;
 }
 
+/**
+ * Index by orderable SKU.
+ *
+ * A variant product contributes its VARIANTS, not itself: the parent sku is
+ * never orderable and has no stock row. Each variant entry carries the
+ * parent's title, images and preorder settings, plus its own price, stock and
+ * chosen options, so cart and checkout need no special cases.
+ */
 export function bySku(products) {
-  return new Map(products.map((p) => [p.sku, p]));
+  const map = new Map();
+  for (const p of products) {
+    if (Array.isArray(p.variants) && p.variants.length) {
+      for (const v of p.variants) {
+        map.set(v.sku, {
+          ...p,
+          sku: v.sku,
+          parentSku: p.sku,
+          priceCents: v.priceCents,
+          stockTotal: v.stockTotal,
+          choices: v.choices,
+          thumb: v.image ?? p.images?.[0],
+          images: v.image ? [v.image, ...(p.images ?? [])] : p.images,
+          variants: undefined,
+          options: undefined,
+        });
+      }
+    } else {
+      map.set(p.sku, p);
+    }
+  }
+  return map;
 }
 
 /** srcset from the width variants the build produced. */

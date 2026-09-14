@@ -9,10 +9,20 @@
       "priceCents": 34900,
       "compareAtCents": 49900,
       "stockTotal": 24,
-      "categories": ["electronics", "audio"],
-      "images": ["earbuds-1.jpg", "earbuds-2.jpg"],
+      "categories": [
+        "electronics",
+        "audio"
+      ],
+      "images": [
+        "earbuds-1.jpg",
+        "earbuds-2.jpg"
+      ],
       "description": "True wireless earbuds with active noise cancellation and a 30-hour charging case. Bluetooth 5.3, IPX4 splash resistant.",
-      "specs": { "Battery": "6h + 24h case", "Bluetooth": "5.3", "Water resistance": "IPX4" }
+      "specs": {
+        "Battery": "6h + 24h case",
+        "Bluetooth": "5.3",
+        "Water resistance": "IPX4"
+      }
     },
     {
       "sku": "EX-1002",
@@ -20,10 +30,18 @@
       "storeSlug": "eshan-electronics",
       "priceCents": 18900,
       "stockTotal": 40,
-      "categories": ["electronics", "accessories"],
-      "images": ["charger-1.jpg"],
+      "categories": [
+        "electronics",
+        "accessories"
+      ],
+      "images": [
+        "charger-1.jpg"
+      ],
       "description": "Compact GaN charger with two USB-C ports and one USB-A. Charges a laptop and phone simultaneously.",
-      "specs": { "Output": "65W total", "Ports": "2x USB-C, 1x USB-A" }
+      "specs": {
+        "Output": "65W total",
+        "Ports": "2x USB-C, 1x USB-A"
+      }
     },
     {
       "sku": "EX-2001",
@@ -31,10 +49,17 @@
       "storeSlug": "island-textiles",
       "priceCents": 24500,
       "stockTotal": 12,
-      "categories": ["clothing"],
-      "images": ["kurta-navy-1.jpg"],
+      "categories": [
+        "clothing"
+      ],
+      "images": [
+        "kurta-navy-1.jpg"
+      ],
       "description": "Breathable cotton kurta suited to warm weather. Machine washable.",
-      "specs": { "Material": "100% cotton", "Sizes": "S–XXL" }
+      "specs": {
+        "Material": "100% cotton",
+        "Sizes": "S–XXL"
+      }
     },
     {
       "sku": "EX-2002",
@@ -43,10 +68,17 @@
       "priceCents": 12000,
       "compareAtCents": 15000,
       "stockTotal": 0,
-      "categories": ["home"],
-      "images": ["bottle-1.jpg"],
+      "categories": [
+        "home"
+      ],
+      "images": [
+        "bottle-1.jpg"
+      ],
       "description": "Double-walled vacuum insulated bottle. Keeps drinks cold for 24 hours, hot for 12.",
-      "specs": { "Capacity": "1000ml", "Material": "304 stainless steel" }
+      "specs": {
+        "Capacity": "1000ml",
+        "Material": "304 stainless steel"
+      }
     },
     {
       "sku": "EX-4001",
@@ -56,10 +88,19 @@
       "stockTotal": 15,
       "leadTimeDays": 35,
       "maxPerOrder": 2,
-      "categories": ["home", "electronics"],
-      "images": ["vacuum-1.jpg"],
+      "categories": [
+        "home",
+        "electronics"
+      ],
+      "images": [
+        "vacuum-1.jpg"
+      ],
       "description": "Lidar-guided robot vacuum with room mapping and a self-emptying base.",
-      "specs": { "Suction": "4000Pa", "Battery": "5200mAh", "Mapping": "Lidar" }
+      "specs": {
+        "Suction": "4000Pa",
+        "Battery": "5200mAh",
+        "Mapping": "Lidar"
+      }
     },
     {
       "sku": "EX-3001",
@@ -67,10 +108,18 @@
       "storeSlug": "eshan-electronics",
       "priceCents": 29900,
       "stockTotal": 7,
-      "categories": ["home", "electronics"],
-      "images": ["lamp-1.jpg"],
+      "categories": [
+        "home",
+        "electronics"
+      ],
+      "images": [
+        "lamp-1.jpg"
+      ],
       "description": "Adjustable colour temperature desk lamp with a 10W Qi charging pad in the base.",
-      "specs": { "Brightness": "5 levels", "Charging": "10W Qi" }
+      "specs": {
+        "Brightness": "5 levels",
+        "Charging": "10W Qi"
+      }
     },
     {
       "sku": "EX-3002",
@@ -78,10 +127,93 @@
       "storeSlug": "island-textiles",
       "priceCents": 8500,
       "stockTotal": 30,
-      "categories": ["clothing", "accessories"],
-      "images": ["tote-1.jpg"],
+      "categories": [
+        "clothing",
+        "accessories"
+      ],
+      "images": [
+        "tote-1.jpg"
+      ],
       "description": "Heavy-duty 16oz canvas tote with reinforced handles and an interior pocket.",
-      "specs": { "Material": "16oz canvas", "Dimensions": "38 x 42 cm" }
+      "specs": {
+        "Material": "16oz canvas",
+        "Dimensions": "38 x 42 cm"
+      }
+    },
+    {
+      "sku": "EX-5001",
+      "title": "KZ EDX Pro Earphones",
+      "storeSlug": "eshan-electronics",
+      "categories": [
+        "electronics",
+        "audio"
+      ],
+      "images": [
+        "earbuds-1.jpg"
+      ],
+      "description": "In-ear monitors with detachable 0.78mm 2-pin cable.",
+      "specs": {
+        "Driver": "10mm dynamic",
+        "Cable": "0.78mm 2-pin detachable"
+      },
+      "options": [
+        {
+          "name": "Colour",
+          "values": [
+            "Black",
+            "Cyan"
+          ]
+        },
+        {
+          "name": "Mic",
+          "values": [
+            "With mic",
+            "No mic"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "sku": "EX-5001-BLK-MIC",
+          "choices": {
+            "Colour": "Black",
+            "Mic": "With mic"
+          },
+          "priceCents": 11584,
+          "stockTotal": 709,
+          "image": "edx-black.jpg"
+        },
+        {
+          "sku": "EX-5001-BLK-NOM",
+          "choices": {
+            "Colour": "Black",
+            "Mic": "No mic"
+          },
+          "priceCents": 10745,
+          "stockTotal": 1102,
+          "image": "edx-black.jpg"
+        },
+        {
+          "sku": "EX-5001-CYN-MIC",
+          "choices": {
+            "Colour": "Cyan",
+            "Mic": "With mic"
+          },
+          "priceCents": 11584,
+          "stockTotal": 1127,
+          "image": "edx-cyan.jpg"
+        },
+        {
+          "sku": "EX-5001-CYN-NOM",
+          "choices": {
+            "Colour": "Cyan",
+            "Mic": "No mic"
+          },
+          "priceCents": 10745,
+          "stockTotal": 0,
+          "image": "edx-cyan.jpg"
+        }
+      ]
     }
   ]
 }

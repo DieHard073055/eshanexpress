@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "catalog": "node scripts/build-catalog.mjs",
     "admin": "node scripts/admin-server.mjs",
-    "test": "node --test tests/cart.test.mjs tests/ocr.test.mjs tests/statement.test.mjs",
+    "test": "node --test tests/cart.test.mjs tests/ocr.test.mjs tests/statement.test.mjs tests/variants.test.mjs",
     "test:build": "node --test tests/build-output.test.mjs",
     "test:rls": "node --test tests/rls.test.mjs tests/handover.test.mjs tests/store-portal.test.mjs",
     "test:all": "node --test tests/"

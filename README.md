@@ -69,6 +69,15 @@ For goods ordered from overseas, add two fields:
 
 `stockTotal: 0` still means **sold out**, not preorder.
 
+### Product variants
+
+A product can offer options (Colour, Size, …) where each combination has its
+own price and stock. Add `options` and `variants` instead of a flat
+`priceCents`/`stockTotal` — see [docs/VARIANTS.md](docs/VARIANTS.md).
+
+Each variant is its own SKU to the database, so stock reservation, checkout
+and the workbench needed no changes. The parent SKU is never orderable.
+
 ### Stock authority
 
 The database owns inventory at checkout. `scripts/sync-stock.mjs` pushes
