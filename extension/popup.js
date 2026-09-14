@@ -124,7 +124,8 @@ document.getElementById('diag2')?.addEventListener('click', diagnose);
 
 // ------------------------------------------------------------------- render
 function render() {
-  $('src').textContent = data.host;
+  const v = chrome.runtime.getManifest().version;
+  $('src').textContent = `${data.host} · v${v}`;
   $('found').classList.remove('hide');
 
   $('title').value = data.title;
@@ -180,9 +181,14 @@ function render() {
   updateCount();
 
   const variantCount = images.filter((i) => i.variant).length;
-  $('swatchnote').textContent = variantCount
-    ? `◆ ${variantCount} look like variant images; the rest are gallery shots.`
-    : 'No variant-specific images detected on this page.';
+  // Report what extraction actually produced. "0 found" and "found but not
+  // fetched" are different failures and were previously indistinguishable.
+  $('swatchnote').textContent = images.length === 0
+    ? `Extractor found no images on this page (${data.gallery.length} gallery, `
+      + `${data.swatches.length} swatch). Use "Copy page structure" below.`
+    : variantCount
+      ? `${images.length} found · ◆ ${variantCount} look like variant images.`
+      : `${images.length} found, all gallery shots.`;
 
   for (const el of $('imgs').querySelectorAll('.thumb')) {
     el.addEventListener('click', () => {
@@ -252,7 +258,20 @@ async function save() {
   if (!title) return status('Give the product a title first.', 'bad');
 
   $('save').disabled = true;
+  try {
+    await doSave(title);
+  } finally {
+    // Several paths below return early; without this the button stays
+    // disabled and the popup looks dead.
+    if ($('save').textContent !== 'Saved') $('save').disabled = false;
+  }
+}
+
+async function doSave(title) {
   const chosen = [...selected].map((i) => data._images[i]);
+  if (chosen.length === 0) {
+    return status('No images selected. Pick at least one, or use "All".', 'bad');
+  }
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
 
   // Chrome caches host permissions per extension version; editing the
@@ -352,6 +371,5 @@ async function save() {
     $('save').textContent = 'Saved';
   } catch (e) {
     status(`Could not reach the editor. Is "npm run admin" running? (${e.message})`, 'bad');
-    $('save').disabled = false;
   }
 }
