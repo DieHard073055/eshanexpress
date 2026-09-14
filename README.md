@@ -34,10 +34,23 @@ npm run catalog   # rebuild catalog only
 
 ## Adding products
 
-1. Drop images into `admin-offline/images/`.
-2. Add an entry to `data/products.json`.
-3. `npm run catalog` — validation fails the build on bad data.
-4. Commit and push; GitHub Actions deploys.
+```bash
+npm run admin
+```
+
+Opens the product editor at http://127.0.0.1:4321 — a local page that writes
+directly to `data/products.json` and `admin-offline/images/`. It binds to
+loopback only and is never deployed.
+
+1. Add or edit products; drag images straight onto the form.
+2. Validation mirrors the build exactly, so a save can never break `npm run build`.
+3. Save, then `npm run build`, then commit and push to publish.
+
+The **Drafts** tab pulls pending submissions from store owners, so you can add
+images and a SKU before approving them into the catalog.
+
+Editing `data/products.json` by hand still works — the editor is a convenience,
+not a lock-in.
 
 Prices are **integer cents** (`34900` = MVR 349.00). Never use floats for money.
 
@@ -75,7 +88,7 @@ whatever totals the database already holds.
 | 5. Checkout + receipt upload + OCR | done |
 | 6. Order history | done |
 | 7. Store-owner portal | done |
-| 8. Admin product entry (offline) | not started |
+| 8. Admin product entry (offline) | done |
 | 9. Matching workbench (offline) | done |
 
 ## Payment workbench (offline)

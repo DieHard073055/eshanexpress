@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EshanExpress — Product Editor</title>
+<style>
+  :root {
+    --bg:#f7f7f6; --card:#fff; --line:#e5e5e3; --ink:#1c1c1b; --muted:#6b6b68;
+    --brand:#ea580c; --brand-dark:#c2410c; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+    --ok-bg:#f0fdf4; --warn-bg:#fffbeb; --bad-bg:#fef2f2;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+           padding:12px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; font-weight:700; }
+  h1 span { color:var(--brand); }
+  .grow { flex:1; }
+  main { max-width:1150px; margin:0 auto; padding:20px; }
+  .layout { display:grid; grid-template-columns:300px 1fr; gap:16px; align-items:start; }
+  @media (max-width:900px){ .layout { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  button { font:inherit; border-radius:7px; padding:8px 14px; cursor:pointer;
+           border:1px solid var(--line); background:#fff; color:var(--ink); }
+  button:hover:not(:disabled){ border-color:#c9c9c6; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  button.primary:hover:not(:disabled){ background:var(--brand-dark); }
+  button.danger { color:var(--bad); border-color:#f3c9c9; }
+  input, textarea, select { font:inherit; padding:7px 10px; border:1px solid var(--line);
+                            border-radius:7px; width:100%; background:#fff; }
+  label { font-weight:600; font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .field { margin-bottom:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .list-item { padding:9px 11px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px;
+               cursor:pointer; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .list-item:hover { border-color:var(--brand); }
+  .list-item.sel { border-color:var(--brand); background:#fff7ed; }
+  .thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .thumb { position:relative; width:76px; height:76px; border:1px solid var(--line);
+           border-radius:8px; overflow:hidden; background:#fafafa; }
+  .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb button { position:absolute; top:2px; right:2px; padding:1px 6px; font-size:11px;
+                  background:rgba(255,255,255,.92); border-radius:5px; }
+  .banner { padding:10px 12px; border-radius:8px; margin-bottom:12px; font-size:13px; border:1px solid; }
+  .banner.ok  { background:var(--ok-bg);  color:var(--ok);  border-color:#bbf7d0; }
+  .banner.warn{ background:var(--warn-bg);color:var(--warn);border-color:#fde68a; }
+  .banner.bad { background:var(--bad-bg); color:var(--bad); border-color:#fecaca; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:11px;
+          font-weight:600; border:1px solid; }
+  .pill.sky  { background:#f0f9ff; color:#0369a1; border-color:#bae6fd; }
+  .pill.warn { background:var(--warn-bg); color:var(--warn); border-color:#fde68a; }
+  .drop { border:2px dashed var(--line); border-radius:9px; padding:16px; text-align:center;
+          color:var(--muted); font-size:13px; }
+  .drop.over { border-color:var(--brand); background:#fff7ed; }
+  .hide { display:none !important; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tab { padding:5px 12px; border-radius:99px; border:1px solid var(--line); background:#fff;
+         cursor:pointer; font-size:13px; }
+  .tab.sel { border-color:var(--brand); background:#fff7ed; color:var(--brand-dark); font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Eshan<span>Express</span> · Product Editor</h1>
+  <span id="dirty" class="pill warn hide">unsaved changes</span>
+  <span class="grow"></span>
+  <span id="savedAt" class="small muted"></span>
+  <button id="save" class="primary" disabled>Save to disk</button>
+</header>
+
+<main>
+  <div id="msg"></div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <div>
+      <div class="card">
+        <div class="tabs">
+          <button class="tab sel" data-tab="products">Products</button>
+          <button class="tab" data-tab="drafts">Drafts <span id="draftCount" class="muted"></span></button>
+        </div>
+
+        <div id="tab-products">
+          <button id="add" class="primary" style="width:100%">New product</button>
+          <div id="list" style="margin-top:10px;"></div>
+        </div>
+
+        <div id="tab-drafts" class="hide">
+          <p class="small muted" style="margin:0 0 8px;">
+            Submitted by store owners. Approving copies the draft into your
+            catalog so you can add images before publishing.
+          </p>
+          <button id="loadDrafts" style="width:100%">Load from Supabase</button>
+          <div id="drafts" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div>
+      <div id="empty" class="card">
+        <p class="muted" style="margin:0;">Select a product, or create a new one.</p>
+      </div>
+
+      <div id="editor" class="card hide">
+        <div id="issues"></div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="f-sku">SKU</label>
+            <input id="f-sku" class="mono" placeholder="EX-1001" />
+          </div>
+          <div class="field">
+            <label for="f-store">Store</label>
+            <select id="f-store"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="f-title">Title</label>
+          <input id="f-title" placeholder="Wireless Earbuds Pro" />
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="f-price">Price (MVR)</label>
+            <input id="f-price" type="number" min="0" step="0.01" placeholder="349.00" />
+          </div>
+          <div class="field">
+            <label for="f-compare">Was price (optional)</label>
+            <input id="f-compare" type="number" min="0" step="0.01" placeholder="499.00" />
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="f-stock">Quantity available</label>
+            <input id="f-stock" type="number" min="0" step="1" placeholder="24" />
+          </div>
+          <div class="field">
+            <label for="f-cats">Categories (comma separated)</label>
+            <input id="f-cats" placeholder="electronics, audio" />
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="f-lead">Preorder lead time (days, blank = in stock)</label>
+            <input id="f-lead" type="number" min="1" step="1" placeholder="35" />
+          </div>
+          <div class="field">
+            <label for="f-max">Max per order (optional)</label>
+            <input id="f-max" type="number" min="1" step="1" placeholder="2" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="f-desc">Description</label>
+          <textarea id="f-desc" rows="3"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Specifications</label>
+          <div id="specs"></div>
+          <button id="addSpec" class="small" style="margin-top:6px;">Add specification</button>
+        </div>
+
+        <div class="field">
+          <label>Images <span class="muted small">(first is the main image)</span></label>
+          <div id="imgDrop" class="drop">
+            Drop images here, or <input id="imgFile" type="file" accept="image/*" multiple style="width:auto;display:inline-block" />
+          </div>
+          <div id="thumbs" class="thumbs"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button id="dup">Duplicate</button>
+          <span class="grow"></span>
+          <button id="del" class="danger">Delete product</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+let doc = { currency: 'MVR', products: [] };
+let stores = [];
+let images = [];
+let selected = null;   // index into doc.products
+let dirty = false;
+
+// --------------------------------------------------------------- helpers
+const toCents = (v) => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  // Money is integer cents everywhere; rounding here avoids float drift.
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+};
+const fromCents = (c) => (c == null ? '' : (c / 100).toFixed(2));
+
+function setDirty(on) {
+  dirty = on;
+  $('dirty').classList.toggle('hide', !on);
+  $('save').disabled = !on;
+}
+
+function banner(kind, html, ms = 0) {
+  $('msg').innerHTML = `<div class="banner ${kind}">${html}</div>`;
+  if (ms) setTimeout(() => { $('msg').innerHTML = ''; }, ms);
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ------------------------------------------------------------------ load
+async function load() {
+  try {
+    const r = await fetch('/api/data');
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    doc = d.products;
+    stores = d.stores.stores ?? [];
+    images = d.images ?? [];
+    renderStores();
+    renderList();
+  } catch (e) {
+    banner('bad', `Could not load data. Is <span class="mono">npm run admin</span> running? <br>${esc(e.message)}`);
+  }
+}
+
+function renderStores() {
+  $('f-store').innerHTML = stores
+    .map((s) => `<option value="${esc(s.slug)}">${esc(s.name)}</option>`).join('');
+}
+
+function renderList() {
+  const list = $('list');
+  if (!doc.products.length) {
+    list.innerHTML = `<p class="small muted">No products yet.</p>`;
+    return;
+  }
+  list.innerHTML = doc.products.map((p, i) => `
+    <div class="list-item ${i === selected ? 'sel' : ''}" data-i="${i}">
+      <div style="min-width:0">
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          ${esc(p.title || '(untitled)')}
+        </div>
+        <div class="small muted mono">${esc(p.sku || '—')}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div class="small">${p.priceCents != null ? 'MVR ' + fromCents(p.priceCents) : '—'}</div>
+        ${p.leadTimeDays ? '<span class="pill sky">pre</span>'
+          : (p.stockTotal === 0 ? '<span class="pill warn">0</span>' : `<span class="small muted">${p.stockTotal ?? 0}</span>`)}
+      </div>
+    </div>`).join('');
+
+  list.querySelectorAll('[data-i]').forEach((el) => {
+    el.addEventListener('click', () => select(Number(el.dataset.i)));
+  });
+}
+
+// ---------------------------------------------------------------- editor
+function select(i) {
+  selected = i;
+  const p = doc.products[i];
+  $('empty').classList.add('hide');
+  $('editor').classList.remove('hide');
+
+  $('f-sku').value     = p.sku ?? '';
+  $('f-store').value   = p.storeSlug ?? stores[0]?.slug ?? '';
+  $('f-title').value   = p.title ?? '';
+  $('f-price').value   = fromCents(p.priceCents);
+  $('f-compare').value = fromCents(p.compareAtCents);
+  $('f-stock').value   = p.stockTotal ?? 0;
+  $('f-cats').value    = (p.categories ?? []).join(', ');
+  $('f-lead').value    = p.leadTimeDays ?? '';
+  $('f-max').value     = p.maxPerOrder ?? '';
+  $('f-desc').value    = p.description ?? '';
+
+  renderSpecs(p.specs ?? {});
+  renderThumbs(p.images ?? []);
+  renderList();
+  validate();
+}
+
+function current() { return doc.products[selected]; }
+
+function bindField(id, apply) {
+  $(id).addEventListener('input', () => {
+    if (selected == null) return;
+    apply(current(), $(id).value);
+    setDirty(true);
+    renderList();
+    validate();
+  });
+}
+
+bindField('f-sku',   (p, v) => { p.sku = v.trim(); });
+bindField('f-title', (p, v) => { p.title = v; });
+bindField('f-desc',  (p, v) => { p.description = v; });
+bindField('f-price',   (p, v) => { p.priceCents = toCents(v); });
+bindField('f-compare', (p, v) => {
+  const c = toCents(v);
+  if (c == null) delete p.compareAtCents; else p.compareAtCents = c;
+});
+bindField('f-stock', (p, v) => { p.stockTotal = v === '' ? 0 : parseInt(v, 10); });
+bindField('f-cats',  (p, v) => {
+  p.categories = v.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+});
+bindField('f-lead', (p, v) => {
+  if (v === '') delete p.leadTimeDays; else p.leadTimeDays = parseInt(v, 10);
+});
+bindField('f-max', (p, v) => {
+  if (v === '') delete p.maxPerOrder; else p.maxPerOrder = parseInt(v, 10);
+});
+$('f-store').addEventListener('change', () => {
+  if (selected == null) return;
+  current().storeSlug = $('f-store').value;
+  setDirty(true); validate();
+});
+
+// ----------------------------------------------------------------- specs
+function renderSpecs(specs) {
+  const rows = Object.entries(specs);
+  $('specs').innerHTML = rows.map(([k, v], i) => `
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <input data-spec-k="${i}" value="${esc(k)}" placeholder="Battery" style="flex:1" />
+      <input data-spec-v="${i}" value="${esc(v)}" placeholder="6h + 24h case" style="flex:2" />
+      <button data-spec-x="${i}" class="danger" title="Remove">×</button>
+    </div>`).join('');
+
+  const commit = () => {
+    const out = {};
+    const keys = [...$('specs').querySelectorAll('[data-spec-k]')];
+    const vals = [...$('specs').querySelectorAll('[data-spec-v]')];
+    keys.forEach((k, i) => {
+      const name = k.value.trim();
+      if (name) out[name] = vals[i].value;
+    });
+    if (Object.keys(out).length) current().specs = out; else delete current().specs;
+    setDirty(true);
+  };
+
+  $('specs').querySelectorAll('[data-spec-k],[data-spec-v]')
+    .forEach((el) => el.addEventListener('input', commit));
+  $('specs').querySelectorAll('[data-spec-x]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const entries = Object.entries(current().specs ?? {});
+      entries.splice(Number(btn.dataset.specX), 1);
+      current().specs = Object.fromEntries(entries);
+      if (!entries.length) delete current().specs;
+      renderSpecs(current().specs ?? {});
+      setDirty(true);
+    });
+  });
+}
+
+$('addSpec').addEventListener('click', () => {
+  if (selected == null) return;
+  const s = current().specs ?? {};
+  s[''] = '';
+  current().specs = s;
+  renderSpecs(s);
+});
+
+// ---------------------------------------------------------------- images
+function renderThumbs(list) {
+  $('thumbs').innerHTML = list.map((name, i) => `
+    <div class="thumb" title="${esc(name)}">
+      <img src="/images/${encodeURIComponent(name)}" alt="" />
+      <button data-img-x="${i}">×</button>
+    </div>`).join('');
+
+  $('thumbs').querySelectorAll('[data-img-x]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      // Removes the reference only — the file stays on disk in case it is
+      // used elsewhere or you change your mind.
+      current().images.splice(Number(btn.dataset.imgX), 1);
+      renderThumbs(current().images);
+      setDirty(true); validate();
+    });
+  });
+}
+
+async function uploadImages(files) {
+  if (selected == null) return;
+  const p = current();
+  p.images = p.images ?? [];
+
+  for (const f of files) {
+    if (!/^image\//.test(f.type)) continue;
+    // Name from the SKU so files stay traceable to a product.
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const base = (p.sku || 'product').replace(/[^A-Za-z0-9._-]/g, '');
+    let name = `${base}-${p.images.length + 1}.${ext}`;
+    let n = 1;
+    while (images.includes(name)) name = `${base}-${p.images.length + 1}-${n++}.${ext}`;
+
+    const r = await fetch(`/api/image?name=${encodeURIComponent(name)}`, {
+      method: 'POST', body: f,
+    });
+    if (!r.ok) { banner('bad', `Upload failed: ${esc((await r.json()).error)}`, 5000); continue; }
+    images.push(name);
+    p.images.push(name);
+  }
+  renderThumbs(p.images);
+  setDirty(true); validate();
+}
+
+$('imgFile').addEventListener('change', (e) => uploadImages([...e.target.files]));
+const imgDrop = $('imgDrop');
+['dragenter','dragover'].forEach((e) => imgDrop.addEventListener(e, (ev) => {
+  ev.preventDefault(); imgDrop.classList.add('over');
+}));
+['dragleave','drop'].forEach((e) => imgDrop.addEventListener(e, () => imgDrop.classList.remove('over')));
+imgDrop.addEventListener('drop', (ev) => {
+  ev.preventDefault(); uploadImages([...ev.dataTransfer.files]);
+});
+
+// ------------------------------------------------------------- validation
+/** Mirrors scripts/build-catalog.mjs so the build cannot fail on a save. */
+function validate() {
+  if (selected == null) return true;
+  const p = current();
+  const errs = [];
+  const warns = [];
+
+  if (!p.sku) errs.push('SKU is required.');
+  else if (!/^[A-Za-z0-9._-]+$/.test(p.sku)) errs.push('SKU may only contain letters, numbers, dot, dash and underscore.');
+  else if (doc.products.filter((x) => x.sku === p.sku).length > 1) errs.push(`SKU "${p.sku}" is used by another product.`);
+
+  if (!p.title?.trim()) errs.push('Title is required.');
+  if (!stores.some((s) => s.slug === p.storeSlug)) errs.push('Pick a store.');
+
+  if (!Number.isInteger(p.priceCents)) errs.push('Price is required.');
+  else if (p.priceCents < 0) errs.push('Price cannot be negative.');
+
+  if (p.compareAtCents != null && p.compareAtCents <= (p.priceCents ?? 0)) {
+    warns.push('"Was" price is not above the price, so no discount will show.');
+  }
+  if (!Number.isInteger(p.stockTotal) || p.stockTotal < 0) errs.push('Quantity must be a whole number, 0 or more.');
+  if (p.leadTimeDays != null && (!Number.isInteger(p.leadTimeDays) || p.leadTimeDays < 1)) {
+    errs.push('Lead time must be a whole number of days.');
+  }
+  if (p.maxPerOrder != null && (!Number.isInteger(p.maxPerOrder) || p.maxPerOrder < 1)) {
+    errs.push('Max per order must be a whole number, 1 or more.');
+  }
+  if (p.leadTimeDays && p.stockTotal === 0) warns.push('Preorder item with quantity 0 shows as sold out.');
+  if (p.maxPerOrder && p.stockTotal && p.maxPerOrder > p.stockTotal) {
+    warns.push(`Max per order (${p.maxPerOrder}) is above the quantity available (${p.stockTotal}).`);
+  }
+  if (!p.images?.length) errs.push('Add at least one image.');
+  if (!p.description?.trim()) warns.push('No description.');
+
+  $('issues').innerHTML =
+    (errs.length ? `<div class="banner bad"><strong>Fix before publishing:</strong><br>${errs.map(esc).join('<br>')}</div>` : '') +
+    (warns.length ? `<div class="banner warn">${warns.map(esc).join('<br>')}</div>` : '');
+
+  return errs.length === 0;
+}
+
+// ------------------------------------------------------------------ CRUD
+$('add').addEventListener('click', () => {
+  const n = doc.products.length + 1;
+  doc.products.push({
+    sku: `EX-${String(1000 + n)}`, title: '', storeSlug: stores[0]?.slug ?? '',
+    priceCents: null, stockTotal: 0, categories: [], images: [], description: '',
+  });
+  setDirty(true);
+  select(doc.products.length - 1);
+});
+
+$('dup').addEventListener('click', () => {
+  if (selected == null) return;
+  const copy = structuredClone(current());
+  copy.sku = `${copy.sku}-COPY`;
+  copy.title = `${copy.title} (copy)`;
+  doc.products.splice(selected + 1, 0, copy);
+  setDirty(true);
+  select(selected + 1);
+});
+
+$('del').addEventListener('click', () => {
+  if (selected == null) return;
+  if (!confirm(`Delete "${current().title || current().sku}"? This cannot be undone once saved.`)) return;
+  doc.products.splice(selected, 1);
+  selected = null;
+  $('editor').classList.add('hide');
+  $('empty').classList.remove('hide');
+  setDirty(true);
+  renderList();
+});
+
+// ------------------------------------------------------------------ save
+$('save').addEventListener('click', async () => {
+  // Validate every product, not just the open one — a broken product
+  // elsewhere would fail the build after you have moved on.
+  const broken = [];
+  const keep = selected;
+  for (let i = 0; i < doc.products.length; i++) {
+    selected = i;
+    if (!validate()) broken.push(doc.products[i].sku || `#${i + 1}`);
+  }
+  selected = keep;
+  if (keep != null) validate();
+
+  if (broken.length) {
+    banner('bad', `Not saved. Fix these first: <strong>${broken.map(esc).join(', ')}</strong>`);
+    return;
+  }
+
+  const btn = $('save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch('/api/products', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(doc, null, 2),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? 'Save failed');
+
+    setDirty(false);
+    $('savedAt').textContent = `Saved ${new Date().toLocaleTimeString()}`;
+    banner('ok', `Saved ${j.count} products. Run <span class="mono">npm run build</span>, then commit and push to publish.`, 8000);
+  } catch (e) {
+    banner('bad', `Save failed: ${esc(e.message)}`);
+  } finally {
+    btn.textContent = 'Save to disk';
+    btn.disabled = !dirty;
+  }
+});
+
+// ----------------------------------------------------------------- drafts
+document.querySelectorAll('.tab').forEach((t) => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('sel', x === t));
+    $('tab-products').classList.toggle('hide', t.dataset.tab !== 'products');
+    $('tab-drafts').classList.toggle('hide', t.dataset.tab !== 'drafts');
+  });
+});
+
+$('loadDrafts').addEventListener('click', async () => {
+  const url = localStorage.getItem('wb.url');
+  const key = localStorage.getItem('wb.key');
+  if (!url || !key) {
+    return banner('warn', 'Open the payment workbench once to store your Supabase details, then come back.');
+  }
+
+  const email = prompt('Admin email:');
+  if (!email) return;
+  const password = prompt('Admin password:');
+  if (!password) return;
+
+  const box = $('drafts');
+  box.innerHTML = '<p class="small muted">Loading…</p>';
+
+  const auth = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'POST', headers: { apikey: key, 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  }).then((r) => r.json());
+
+  if (!auth.access_token) { box.innerHTML = '<p class="small" style="color:var(--bad)">Sign-in failed.</p>'; return; }
+
+  const drafts = await fetch(`${url}/rest/v1/product_drafts?select=*&status=eq.pending&order=created_at.desc`, {
+    headers: { apikey: key, authorization: `Bearer ${auth.access_token}` },
+  }).then((r) => r.json());
+
+  $('draftCount').textContent = drafts.length ? `(${drafts.length})` : '';
+
+  if (!drafts.length) { box.innerHTML = '<p class="small muted">No pending drafts.</p>'; return; }
+
+  box.innerHTML = drafts.map((d, i) => `
+    <div class="list-item" style="display:block">
+      <div style="font-weight:600">${esc(d.payload?.title ?? 'Untitled')}</div>
+      <div class="small muted">
+        MVR ${((d.payload?.priceCents ?? 0) / 100).toFixed(2)} ·
+        ${d.payload?.stockTotal ?? 0} in stock
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button data-approve="${i}" class="primary small" style="flex:1">Add to catalog</button>
+        <button data-reject="${i}" class="danger small">Reject</button>
+      </div>
+    </div>`).join('');
+
+  const setStatus = async (id, status, note) => fetch(`${url}/rest/v1/product_drafts?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { apikey: key, authorization: `Bearer ${auth.access_token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ status, review_note: note ?? null }),
+  });
+
+  box.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const d = drafts[Number(btn.dataset.approve)];
+      const store = stores.find((s) => s.id === d.store_id) ?? stores[0];
+      doc.products.push({
+        sku: `EX-${Date.now().toString().slice(-5)}`,
+        title: d.payload?.title ?? '',
+        storeSlug: store?.slug ?? '',
+        priceCents: d.payload?.priceCents ?? null,
+        stockTotal: d.payload?.stockTotal ?? 0,
+        categories: [], images: [],
+        description: d.payload?.description ?? '',
+      });
+      await setStatus(d.id, 'approved');
+      setDirty(true);
+      select(doc.products.length - 1);
+      document.querySelector('.tab[data-tab="products"]').click();
+      banner('ok', 'Draft added. Give it a SKU and images, then save.', 7000);
+    });
+  });
+
+  box.querySelectorAll('[data-reject]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const d = drafts[Number(btn.dataset.reject)];
+      const note = prompt('Why is this rejected? The seller will see this.');
+      if (!note) return;
+      await setStatus(d.id, 'rejected', note.trim());
+      btn.closest('.list-item').remove();
+    });
+  });
+});
+
+load();
+</script>
+</body>
+</html>

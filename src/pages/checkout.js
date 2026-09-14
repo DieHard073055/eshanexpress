@@ -10,8 +10,8 @@ import { leadTimeLabel } from '../lib/preorder.js';
 /** Bank details the customer transfers to. Shown after the order is placed. */
 const BANK = {
   bank: 'Bank of Maldives',
-  accountName: 'EshanExpress',
-  accountNumber: '7730000000000',
+  accountName: 'ESHAN SHAFEEQ',
+  accountNumber: '7730000565406',
 };
 
 export async function checkoutPage() {

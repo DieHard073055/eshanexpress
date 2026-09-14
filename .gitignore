@@ -8,6 +8,9 @@ docs/samples/statement-sample.csv
 .env.*
 !.env.example
 
+# Editor rollback copy
+data/products.json.bak
+
 # Build output
 dist/
 node_modules/
