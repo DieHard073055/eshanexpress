@@ -94,10 +94,12 @@ describe('extractor against real pages', { skip: have ? false : 'samples missing
     }
   });
 
-  test('Temu: rejects the placeholder price rather than reporting it', function () {
+  test('Temu: skips the "$0123456789.01" placeholder and finds the real price', function () {
     if (!JSDOM) return;
-    // The page contains "$0123456789.01" in a tracking node.
+    // Temu ships a sequential-digit string used to size the price element.
+    // The live popup reported it as the price until this was rejected.
     const r = run('screen_protector.html', 'https://www.temu.com/x.html');
-    assert.equal(r.priceNumber, null, 'a leading-zero placeholder is not a price');
+    assert.equal(r.priceNumber, 2.95, 'should find the actual listed price');
+    assert.doesNotMatch(String(r.priceText), /0123456789/);
   });
 });

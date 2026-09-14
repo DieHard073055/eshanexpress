@@ -75,7 +75,7 @@ const status = (msg, kind = 'warn') => {
   el.classList.remove('hide');
 };
 
-document.getElementById('diag2')?.addEventListener('click', () => diagnose('diag2'));
+document.getElementById('diag2')?.addEventListener('click', diagnose);
 
 // ------------------------------------------------------------------ extract
 (async () => {
@@ -228,8 +228,11 @@ function render() {
  * Used when extraction comes back empty: reports class names, element counts
  * and short text samples so selectors can be written from the real DOM.
  */
-async function diagnose(which = 'diag') {
-  const btn = $(which);
+async function diagnose(ev) {
+  // Called both directly and as a click listener, which passes the event.
+  // Resolve the button from the event target rather than trusting an id.
+  const btn = ev?.currentTarget instanceof HTMLElement ? ev.currentTarget : $('diag');
+  if (!btn) return;
   btn.disabled = true;
   btn.textContent = 'Reading…';
   try {

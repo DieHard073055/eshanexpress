@@ -63,31 +63,47 @@
   // Rf here), so capture it rather than assuming.
   const CURRENCY = String.raw`(?:S\$|SGD|MVR|Rf\.?|US\s*\$|USD|A\$|₹|£|€|\$)`;
 
+  /**
+   * Is this string a real price?
+   *
+   * Temu ships a "$0123456789.01" placeholder used to size the price element.
+   * A leading zero, a sequential run of digits, or an absurd magnitude all
+   * mean this is not a price.
+   */
+  const plausiblePrice = (str) => {
+    const m = String(str).replace(/,/g, '').match(/(\d+(?:\.\d{1,2})?)/);
+    if (!m) return false;
+    if (/0123456789/.test(m[1])) return false;      // the placeholder
+    if (/^0\d/.test(m[1])) return false;            // leading zero
+    const n = parseFloat(m[1]);
+    return Number.isFinite(n) && n > 0 && n < 1000000;
+  };
+
   const priceText = (() => {
     for (const sel of ['[class*="price-default--wrap"]', '[class*="price--current"]',
                        '[class*="product-price-value"]', '[data-pl="product-price"]',
                        '[class*="Price"]']) {
       const t = text(document.querySelector(sel));
-      if (new RegExp(CURRENCY + String.raw`\s*[\d,]`).test(t)) return t;
+      if (new RegExp(CURRENCY + String.raw`\s*[\d,]`).test(t) && plausiblePrice(t)) return t;
     }
 
     // Sites like Temu split "$2.95" across nested spans, so no single element
     // holds the whole string. Scan leaf-ish nodes for a complete amount and
-    // take the first with a decimal part — a bare integer is usually a badge
-    // ("5Pcs", "0") rather than a price.
+    // take the first PLAUSIBLE one with a decimal part — a bare integer is
+    // usually a badge ("5Pcs", "0") rather than a price.
     const AMOUNT = new RegExp(CURRENCY + String.raw`\s*\d[\d,]*\.\d{2}`);
     for (const el of document.querySelectorAll('span, div, p, strong, b')) {
       if (el.children.length > 3) continue;
       const t = text(el);
       if (t.length > 60) continue;
       const m = t.match(AMOUNT);
-      if (m) return m[0];
+      if (m && plausiblePrice(m[0])) return m[0];
     }
     // innerText is undefined when the page has not laid out yet (and in
     // jsdom), so fall back to textContent rather than throwing.
     const body = document.body?.innerText ?? document.body?.textContent ?? '';
-    const m = body.match(new RegExp(CURRENCY + String.raw`\s*[\d,]+(?:\.\d{1,2})?`));
-    return m ? m[0] : '';
+    const all = body.match(new RegExp(CURRENCY + String.raw`\s*[\d,]+(?:\.\d{1,2})?`, 'g')) ?? [];
+    return all.find(plausiblePrice) ?? '';
   })();
 
   const priceNumber = (() => {
@@ -96,10 +112,7 @@
       new RegExp(CURRENCY + String.raw`\s*([\d]+(?:\.\d{1,2})?)`));
     if (!m) return null;
 
-    // A leading zero on a multi-digit number ("$0123456789.01") means this is
-    // a placeholder or tracking node, not a price. Real Temu pages carry such
-    // elements. Reject rather than hand back nonsense.
-    if (/^0\d/.test(m[1])) return null;
+    if (!plausiblePrice(m[0])) return null;
 
     const n = parseFloat(m[1]);
     // Nothing sold on these sites costs a hundred million or zero.
