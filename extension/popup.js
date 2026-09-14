@@ -260,6 +260,11 @@ async function save() {
   $('save').disabled = true;
   try {
     await doSave(title);
+  } catch (e) {
+    // An unexpected throw previously vanished into the finally block, leaving
+    // a misleading success message on screen. Always surface it.
+    status(`Capture failed: ${e.message}`, 'bad');
+    console.error('[EshanExpress] capture failed', e);
   } finally {
     // Several paths below return early; without this the button stays
     // disabled and the popup looks dead.
@@ -274,25 +279,28 @@ async function doSave(title) {
   }
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
 
-  // Chrome caches host permissions per extension version; editing the
-  // manifest without bumping the version can leave the old set in force.
-  // Check before fetching so the cause is named rather than guessed.
+  // Optional pre-flight: chrome.permissions exists only when the
+  // "permissions" API is declared in the manifest. Accessing it otherwise
+  // throws SYNCHRONOUSLY, which .catch() cannot intercept — that skipped the
+  // whole fetch loop and reported "Saved 0 image(s)" with no explanation.
   const hosts = [...new Set(chosen.map((im) => {
     try { return new URL(im.src).origin; } catch { return null; }
   }).filter(Boolean))];
 
-  const missing = [];
-  for (const origin of hosts) {
-    const ok = await chrome.permissions.contains({ origins: [`${origin}/*`] })
-      .catch(() => true);   // API unavailable: do not block, just try
-    if (!ok) missing.push(origin);
-  }
-  if (missing.length === hosts.length && hosts.length > 0) {
-    return status(
-      `No permission to fetch from ${missing.join(', ')}. `
-      + 'Reload the extension at chrome://extensions — if that does not help, '
-      + 'remove and re-add it, since Chrome caches permissions per version.',
-      'bad');
+  if (typeof chrome !== 'undefined' && chrome.permissions?.contains) {
+    const missing = [];
+    for (const origin of hosts) {
+      let ok = true;
+      try {
+        ok = await chrome.permissions.contains({ origins: [`${origin}/*`] });
+      } catch { ok = true; }   // cannot tell: proceed and let fetch decide
+      if (!ok) missing.push(origin);
+    }
+    if (hosts.length > 0 && missing.length === hosts.length) {
+      return status(
+        `No permission to fetch from ${missing.join(', ')}. `
+        + 'Remove and re-add the extension at chrome://extensions.', 'bad');
+    }
   }
 
   const images = [];
@@ -365,9 +373,15 @@ async function doSave(title) {
     if (!res.ok) throw new Error(out.error ?? 'Save failed');
 
     const skipped = chosen.length - images.length;
-    status(`Saved ${out.savedImages} image(s)`
-      + (skipped ? ` (${skipped} could not be fetched)` : '')
-      + `. ${out.staged} product(s) waiting in the editor.`, skipped ? 'warn' : 'ok');
+    const none = out.savedImages === 0 && chosen.length > 0;
+    status(
+      none
+        ? `Saved the product but NO images (${chosen.length} were selected). `
+          + 'Check the console for the reason.'
+        : `Saved ${out.savedImages} image(s)`
+          + (skipped ? ` (${skipped} could not be fetched)` : '')
+          + `. ${out.staged} product(s) waiting in the editor.`,
+      none ? 'bad' : skipped ? 'warn' : 'ok');
     $('save').textContent = 'Saved';
   } catch (e) {
     status(`Could not reach the editor. Is "npm run admin" running? (${e.message})`, 'bad');
