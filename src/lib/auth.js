@@ -25,6 +25,7 @@ export async function initAuth() {
   ready = true;
   supabase.auth.onAuthStateChange((_event, session) => {
     cachedUser = session?.user ?? null;
+    clearProfileCache();   // role must never survive a user change
     emit();
   });
   emit();
@@ -77,6 +78,7 @@ export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();
   cachedUser = null;
+  clearProfileCache();
   emit();
 }
 
@@ -88,11 +90,38 @@ export async function resetPassword(email) {
   return { ok: true };
 }
 
-/** Profile row (role, store). Null when signed out. */
+/**
+ * Profile row (role, store). Null when signed out.
+ *
+ * Cached per user: role gates several pages, and refetching on every route
+ * change would add a round trip to each navigation. Cleared on auth change.
+ */
+let profileCache = null;
+let profileFor = null;
+
 export async function getProfile() {
   if (!supabase || !cachedUser) return null;
+  if (profileFor === cachedUser.id && profileCache) return profileCache;
+
   const { data, error } = await supabase
-    .from('profiles').select('role, store_id').eq('id', cachedUser.id).maybeSingle();
+    .from('profiles')
+    .select('role, store_id, stores(slug, name)')
+    .eq('id', cachedUser.id)
+    .maybeSingle();
   if (error) return null;
+
+  profileCache = data;
+  profileFor = cachedUser.id;
   return data;
+}
+
+export function clearProfileCache() {
+  profileCache = null;
+  profileFor = null;
+}
+
+/** True when the signed-in user can act on a store's orders. */
+export async function isStaff() {
+  const p = await getProfile();
+  return p?.role === 'store_owner' || p?.role === 'admin';
 }

@@ -7,6 +7,7 @@ import { cartPage } from './pages/cart.js';
 import { checkoutPage } from './pages/checkout.js';
 import { orderPage, ordersPage } from './pages/order.js';
 import { signInPage, signUpPage, forgotPage, accountPage } from './pages/account.js';
+import { storePage, storeProductsPage } from './pages/store.js';
 import { initAuth, onAuthChange } from './lib/auth.js';
 
 mountChrome((q) => {
@@ -24,6 +25,8 @@ route('/signin', signInPage);
 route('/signup', signUpPage);
 route('/forgot', forgotPage);
 route('/account', accountPage);
+route('/store', storePage);
+route('/store/products', storeProductsPage);
 
 setNotFound(() => setView(errorView('That page does not exist.')));
 

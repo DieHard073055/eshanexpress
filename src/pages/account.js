@@ -1,5 +1,5 @@
 import { setView, esc, toast } from '../components/layout.js';
-import { signIn, signUp, signOut, resetPassword, getUser } from '../lib/auth.js';
+import { signIn, signUp, signOut, resetPassword, getUser, getProfile } from '../lib/auth.js';
 import { isConfigured } from '../lib/supabase.js';
 import { navigate } from '../lib/router.js';
 
@@ -181,6 +181,8 @@ export async function accountPage() {
         </dl>
       </div>
 
+      <div id="staff-link" class="mt-4 hidden"></div>
+
       <div class="mt-4 grid gap-3 sm:grid-cols-2">
         <a href="#/orders" class="card flex items-center justify-between p-4 hover:border-brand-500">
           <span class="font-medium">Your orders</span>
@@ -194,6 +196,24 @@ export async function accountPage() {
 
       <button id="signout" class="btn-secondary mt-6 w-full">Sign out</button>
     </div>`);
+
+  // Sellers get a link to their portal; regular customers never see it.
+  const profile = await getProfile();
+  if (profile?.role === 'store_owner' || profile?.role === 'admin') {
+    const box = document.getElementById('staff-link');
+    box.className = 'mt-4';
+    box.innerHTML = `
+      <a href="#/store" class="card flex items-center justify-between border-brand-300 bg-brand-50 p-4
+                               hover:border-brand-500">
+        <span>
+          <span class="font-medium text-brand-900">Store portal</span>
+          <span class="mt-0.5 block text-xs text-brand-900/70">
+            ${esc(profile.stores?.name ?? 'Manage orders and products')}
+          </span>
+        </span>
+        <span aria-hidden="true" class="text-brand-500">&rarr;</span>
+      </a>`;
+  }
 
   document.getElementById('signout').addEventListener('click', async () => {
     await signOut();
