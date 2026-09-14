@@ -421,3 +421,29 @@ the quantity input, `cart.resolve()`, and `reserve_cart` server-side.
 - **Leaked password protection is disabled.** Enable it in the dashboard:
   Authentication → Providers → Password → "Check against HaveIBeenPwned".
   Free, and blocks known-breached passwords at signup.
+
+
+---
+
+## 10. Store-owner capture (extension)
+
+A seller signs into the browser extension and submits captures as
+`product_drafts` for the admin to review. No local tooling on their side.
+
+- Draft images go to the private `draft-images` bucket, pathed
+  `<store_id>/<draft_id>/<file>`, so RLS scopes them by the first segment
+- A `before insert` trigger enforces **50 pending drafts** and **100 MB** per
+  store. Storage is shared with payment receipts, and a full bucket would stop
+  customers proving payment — the quota protects that, not the seller.
+- The extension holds only the publishable key, which is RLS-gated
+
+Verified live: a draft arrives `pending`, an image uploads to the store's own
+folder, an upload to another store's folder is refused (400), and an owner
+cannot self-approve.
+
+### Known gap: orphaned draft images
+
+Deleting or approving a draft does not remove its images from Storage. They
+accumulate against the store's quota until cleaned up manually. A cleanup
+pass belongs in the admin approval flow — worth doing before onboarding
+sellers in volume, not urgent for one or two.

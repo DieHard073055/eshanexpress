@@ -103,115 +103,252 @@
       }
     },
     {
-      "sku": "EX-3001",
-      "title": "LED Desk Lamp with Wireless Charging",
+      "sku": "CP-947933",
+      "title": "1MORE SonoFLow SE HQ31 Over-Ear Headphones Wireless Earphones Bluetooth 5.4 Hi-Res LDAC -42dB Noise Cancellation 90H Playtime",
       "storeSlug": "eshan-electronics",
-      "priceCents": 29900,
-      "stockTotal": 7,
-      "categories": [
-        "home",
-        "electronics"
-      ],
+      "categories": [],
       "images": [
-        "lamp-1.jpg"
+        "1more-sonoflow-se-hq31-over-ear--1.webp",
+        "1more-sonoflow-se-hq31-over-ear--2.webp",
+        "1more-sonoflow-se-hq31-over-ear--3.webp",
+        "1more-sonoflow-se-hq31-over-ear--4.webp",
+        "1more-sonoflow-se-hq31-over-ear--5.webp",
+        "1more-sonoflow-se-hq31-over-ear--6.webp",
+        "1more-sonoflow-se-hq31-over-ear--7.webp",
+        "1more-sonoflow-se-hq31-over-ear--8.webp",
+        "1more-sonoflow-se-hq31-over-ear--9.webp",
+        "1more-sonoflow-se-hq31-over-ear--10.webp",
+        "1more-sonoflow-se-hq31-over-ear--11.webp",
+        "1more-sonoflow-se-hq31-over-ear--12.webp"
       ],
-      "description": "Adjustable colour temperature desk lamp with a 10W Qi charging pad in the base.",
+      "description": "",
+      "sourceUrl": "https://www.aliexpress.com/item/1005008379012998.html",
       "specs": {
-        "Brightness": "5 levels",
-        "Charging": "10W Qi"
-      }
-    },
-    {
-      "sku": "EX-3002",
-      "title": "Canvas Tote Bag",
-      "storeSlug": "island-textiles",
-      "priceCents": 8500,
-      "stockTotal": 30,
-      "categories": [
-        "clothing",
-        "accessories"
-      ],
-      "images": [
-        "tote-1.jpg"
-      ],
-      "description": "Heavy-duty 16oz canvas tote with reinforced handles and an interior pocket.",
-      "specs": {
-        "Material": "16oz canvas",
-        "Dimensions": "38 x 42 cm"
-      }
-    },
-    {
-      "sku": "EX-5001",
-      "title": "KZ EDX Pro Earphones",
-      "storeSlug": "eshan-electronics",
-      "categories": [
-        "electronics",
-        "audio"
-      ],
-      "images": [
-        "earbuds-1.jpg"
-      ],
-      "description": "In-ear monitors with detachable 0.78mm 2-pin cable.",
-      "specs": {
-        "Driver": "10mm dynamic",
-        "Cable": "0.78mm 2-pin detachable"
+        "CategoryEarphones & Headphones": "Category",
+        "DepartmentUnisex-adult": "Department",
+        "MaterialPlastic": "Material"
       },
       "options": [
         {
-          "name": "Colour",
+          "name": "Color",
           "values": [
-            "Black",
-            "Cyan"
-          ]
-        },
-        {
-          "name": "Mic",
-          "values": [
-            "With mic",
-            "No mic"
+            "black",
+            "Oat-white",
+            "blue",
+            "pink"
           ]
         }
       ],
       "variants": [
         {
-          "sku": "EX-5001-BLK-MIC",
+          "sku": "CP-947933-01",
           "choices": {
-            "Colour": "Black",
-            "Mic": "With mic"
+            "Color": "black"
           },
-          "priceCents": 11584,
-          "stockTotal": 709,
-          "image": "edx-black.jpg"
+          "priceCents": 92500,
+          "stockTotal": 10
         },
         {
-          "sku": "EX-5001-BLK-NOM",
+          "sku": "CP-947933-02",
           "choices": {
-            "Colour": "Black",
-            "Mic": "No mic"
+            "Color": "Oat-white"
           },
-          "priceCents": 10745,
-          "stockTotal": 1102,
-          "image": "edx-black.jpg"
+          "priceCents": 92500,
+          "stockTotal": 10
         },
         {
-          "sku": "EX-5001-CYN-MIC",
+          "sku": "CP-947933-03",
           "choices": {
-            "Colour": "Cyan",
-            "Mic": "With mic"
+            "Color": "blue"
           },
-          "priceCents": 11584,
-          "stockTotal": 1127,
-          "image": "edx-cyan.jpg"
+          "priceCents": 92500,
+          "stockTotal": 10
         },
         {
-          "sku": "EX-5001-CYN-NOM",
+          "sku": "CP-947933-04",
           "choices": {
-            "Colour": "Cyan",
-            "Mic": "No mic"
+            "Color": "pink"
           },
-          "priceCents": 10745,
-          "stockTotal": 0,
-          "image": "edx-cyan.jpg"
+          "priceCents": 92500,
+          "stockTotal": 10
+        }
+      ]
+    },
+    {
+      "sku": "CP-950446",
+      "title": "KZ EDX Pro X Sport HIFI Earphones 0.78mm 2Pin Detachable Cable HD Noise Reduction Mic For Gaming Commute",
+      "storeSlug": "eshan-electronics",
+      "categories": [],
+      "images": [
+        "kz-edx-pro-x-sport-hifi-earphone-1.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-2.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-3.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-4.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-5.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-6.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-7.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-8.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-9.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-10.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-11.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-12.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-13.webp",
+        "kz-edx-pro-x-sport-hifi-earphone-14.webp"
+      ],
+      "description": "",
+      "sourceUrl": "https://www.aliexpress.com/item/1005012692349233.html",
+      "specs": {
+        "CategoryEarphones & Headphones": "Category",
+        "High-concerned chemicalnone": "High-concerned chemical",
+        "Line Length1.2": "Line Length"
+      },
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            "EDXProX White NOMIC",
+            "EDXProX Black MIC",
+            "EDXProX Black NOMIC",
+            "EDXProX Cyan MIC",
+            "EDXProX White MIC",
+            "EDXProX Cyan NOMIC",
+            "Transparent Gray MIC",
+            "Transparent MIC",
+            "TransparentGrayNOMIC",
+            "Transparent NOMIC",
+            "Black TYPE-C  MIC",
+            "TransparentTYPE-CMIC",
+            "Cyan TYPE-C  MIC",
+            "White TYPE-C  MIC"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "sku": "CP-950446-01",
+          "choices": {
+            "Color": "EDXProX White NOMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-1.webp"
+        },
+        {
+          "sku": "CP-950446-02",
+          "choices": {
+            "Color": "EDXProX Black MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-2.webp"
+        },
+        {
+          "sku": "CP-950446-03",
+          "choices": {
+            "Color": "EDXProX Black NOMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-3.webp"
+        },
+        {
+          "sku": "CP-950446-04",
+          "choices": {
+            "Color": "EDXProX Cyan MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-4.webp"
+        },
+        {
+          "sku": "CP-950446-05",
+          "choices": {
+            "Color": "EDXProX White MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-5.webp"
+        },
+        {
+          "sku": "CP-950446-06",
+          "choices": {
+            "Color": "EDXProX Cyan NOMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-6.webp"
+        },
+        {
+          "sku": "CP-950446-07",
+          "choices": {
+            "Color": "Transparent Gray MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-7.webp"
+        },
+        {
+          "sku": "CP-950446-08",
+          "choices": {
+            "Color": "Transparent MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-8.webp"
+        },
+        {
+          "sku": "CP-950446-09",
+          "choices": {
+            "Color": "TransparentGrayNOMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-9.webp"
+        },
+        {
+          "sku": "CP-950446-10",
+          "choices": {
+            "Color": "Transparent NOMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-10.webp"
+        },
+        {
+          "sku": "CP-950446-11",
+          "choices": {
+            "Color": "Black TYPE-C  MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-11.webp"
+        },
+        {
+          "sku": "CP-950446-12",
+          "choices": {
+            "Color": "TransparentTYPE-CMIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-12.webp"
+        },
+        {
+          "sku": "CP-950446-13",
+          "choices": {
+            "Color": "Cyan TYPE-C  MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-13.webp"
+        },
+        {
+          "sku": "CP-950446-14",
+          "choices": {
+            "Color": "White TYPE-C  MIC"
+          },
+          "priceCents": 19000,
+          "stockTotal": 10,
+          "image": "kz-edx-pro-x-sport-hifi-earphone-14.webp"
         }
       ]
     }

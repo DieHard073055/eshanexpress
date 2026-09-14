@@ -36,6 +36,29 @@
   <h1>Eshan<span>Express</span> capture</h1>
   <p class="muted" id="src">Reading this page…</p>
 
+  <div id="who" class="row hide" style="margin:6px 0 0;font-size:11px">
+    <span class="muted" id="whoami"></span>
+    <span style="flex:1"></span>
+    <button id="signout" style="padding:2px 8px;font-size:11px">Sign out</button>
+  </div>
+
+  <div id="signin" class="box hide" style="margin-top:10px">
+    <p style="margin:0 0 8px;font-size:12px">
+      <strong>Sign in to submit to your store.</strong><br>
+      <span class="muted">Captures go to the administrator for review.</span>
+    </p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" />
+    <div style="height:6px"></div>
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" />
+    <div id="signin-err" class="note bad hide" style="margin-top:8px"></div>
+    <button id="dosignin" class="primary" style="width:100%;margin-top:9px">Sign in</button>
+    <button id="skipsignin" style="width:100%;margin-top:6px;font-size:12px">
+      Skip — save to my local editor
+    </button>
+  </div>
+
   <div id="err" class="note bad hide"></div>
 
   <div id="diagfallback" class="row hide" style="margin-top:10px">

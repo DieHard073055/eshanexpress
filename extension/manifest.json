@@ -1,20 +1,22 @@
 {
   "manifest_version": 3,
   "name": "EshanExpress Product Capture",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Capture product details and variant images from a supplier page you have open, for review in your own catalog editor.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "host_permissions": [
     "http://127.0.0.1:4321/*",
-    "https://*.aliexpress-media.com/*",
     "https://*.alicdn.com/*",
+    "https://*.aliexpress-media.com/*",
     "https://*.aliexpress.com/*",
     "https://*.kwcdn.com/*",
-    "https://*.tmcdn.net/*",
-    "https://*.temu.com/*"
+    "https://*.supabase.co/*",
+    "https://*.temu.com/*",
+    "https://*.tmcdn.net/*"
   ],
   "action": {
     "default_popup": "popup.html",

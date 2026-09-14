@@ -60,7 +60,8 @@ const server = createServer(async (req, res) => {
   const fromExtension = origin.startsWith('chrome-extension://')
     || origin.startsWith('moz-extension://');
 
-  if ((path === '/api/capture' || path === '/api/pricing') && fromExtension) {
+  if ((path === '/api/capture' || path === '/api/pricing' || path === '/api/supabase')
+      && fromExtension) {
     res.setHeader('access-control-allow-origin', origin);
     res.setHeader('access-control-allow-headers', 'content-type');
     res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
@@ -150,6 +151,22 @@ const server = createServer(async (req, res) => {
         ok: true, savedImages: saved.length, staged: stage.captured.length,
         rejected,
       });
+    }
+
+    // Supabase URL and PUBLISHABLE key, so a store owner can sign in from the
+    // extension. Both are public and RLS-gated; the secret key is never here.
+    if (path === '/api/supabase' && req.method === 'GET') {
+      const envPath = join(ROOT, '.env');
+      if (!existsSync(envPath)) return json(res, 200, { configured: false });
+      const env = Object.fromEntries(
+        (await readFile(envPath, 'utf8')).split('\n')
+          .filter((l) => l.includes('=') && !l.trim().startsWith('#'))
+          .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }),
+      );
+      const url = env.VITE_SUPABASE_URL;
+      const key = env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!url || !key) return json(res, 200, { configured: false });
+      return json(res, 200, { configured: true, url, key });
     }
 
     // Pricing config, so the extension can convert as you browse.

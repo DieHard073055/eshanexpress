@@ -9,6 +9,20 @@ and images to your local catalog editor for review.
 2. Turn on **Developer mode** (top right)
 3. **Load unpacked** → select this `extension/` folder
 
+## Store owners
+
+Sign in from the popup with your seller account. Captures then go to the
+administrator as **product drafts** rather than to a local editor — you do not
+need anything running on your machine.
+
+Limits per store: **50 pending drafts** and **100 MB** of draft images. Both
+exist because storage is shared with customer payment receipts, and a full
+bucket would stop customers proving they paid. Once the administrator
+processes your drafts the space frees up.
+
+You cannot approve your own drafts, and you cannot see or submit to another
+store.
+
 ## Use
 
 1. Start the editor: `npm run admin`

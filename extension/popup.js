@@ -9,6 +9,16 @@
 const ADMIN = 'http://127.0.0.1:4321';
 const $ = (id) => document.getElementById(id);
 
+/**
+ * Two destinations.
+ *
+ * Signed in as a store owner, captures go to Supabase as product drafts for
+ * the administrator to review. Signed out, they go to the local editor —
+ * which only the administrator runs.
+ */
+let session = null;    // { token, userId, email, storeId, role }
+let supa = null;       // { url, key } from the local editor, or storage
+
 let data = null;
 let pricing = null;
 const selected = new Set();
@@ -77,6 +87,82 @@ const status = (msg, kind = 'warn') => {
 
 document.getElementById('diag2')?.addEventListener('click', diagnose);
 
+// --------------------------------------------------------------------- auth
+async function loadSupabaseConfig() {
+  // Prefer whatever was stored from a previous sign-in; fall back to asking
+  // the local editor, which is how an owner gets configured the first time.
+  const stored = await chrome.storage.local.get(['supaUrl', 'supaKey', 'session']);
+  if (stored.supaUrl && stored.supaKey) {
+    supa = { url: stored.supaUrl, key: stored.supaKey };
+    if (stored.session) session = stored.session;
+    return;
+  }
+  try {
+    const r = await fetch(`${ADMIN}/api/supabase`);
+    const cfg = await r.json();
+    if (cfg.url && cfg.key) {
+      supa = { url: cfg.url, key: cfg.key };
+      await chrome.storage.local.set({ supaUrl: cfg.url, supaKey: cfg.key });
+    }
+  } catch { /* editor not running and never configured */ }
+}
+
+async function signIn(email, password) {
+  if (!supa) return { error: 'Not configured. Open the local editor once, or ask the administrator.' };
+
+  const r = await fetch(`${supa.url}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: supa.key, 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await r.json();
+  if (!j.access_token) {
+    return { error: j.error_description ?? j.msg ?? 'Sign-in failed.' };
+  }
+
+  // Only a store owner has somewhere to submit to.
+  const pr = await fetch(
+    `${supa.url}/rest/v1/profiles?select=role,store_id,stores(name)&id=eq.${j.user.id}`,
+    { headers: { apikey: supa.key, authorization: `Bearer ${j.access_token}` } },
+  );
+  const [profile] = await pr.json();
+
+  if (!profile || (profile.role !== 'store_owner' && profile.role !== 'admin')) {
+    return { error: 'That account is not a seller. Ask the administrator to set up your store.' };
+  }
+  if (profile.role === 'store_owner' && !profile.store_id) {
+    return { error: 'Your account has no store assigned yet.' };
+  }
+
+  session = {
+    token: j.access_token,
+    refresh: j.refresh_token,
+    userId: j.user.id,
+    email: j.user.email,
+    role: profile.role,
+    storeId: profile.store_id,
+    storeName: profile.stores?.name ?? null,
+  };
+  await chrome.storage.local.set({ session });
+  return { ok: true };
+}
+
+async function signOut() {
+  session = null;
+  await chrome.storage.local.remove('session');
+  renderAuth();
+}
+
+function renderAuth() {
+  const signedIn = Boolean(session);
+  $('who').classList.toggle('hide', !signedIn);
+  if (signedIn) {
+    $('whoami').textContent = session.storeName
+      ? `${session.email} · ${session.storeName}`
+      : session.email;
+  }
+}
+
 // ------------------------------------------------------------------ extract
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -110,6 +196,9 @@ document.getElementById('diag2')?.addEventListener('click', diagnose);
   }
 
   data = result;
+
+  await loadSupabaseConfig();
+  renderAuth();
 
   // Pricing config is optional: without the editor running you can still
   // capture, you just enter the MVR price yourself.
@@ -212,6 +301,35 @@ function render() {
 
   $('save').addEventListener('click', save);
   $('diag').addEventListener('click', diagnose);
+
+  // Signed-out sellers see the sign-in box; the administrator can skip it and
+  // save to the local editor instead.
+  if (!session && supa) $('signin').classList.remove('hide');
+
+  $('dosignin')?.addEventListener('click', async () => {
+    const btn = $('dosignin');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    const { error } = await signIn($('email').value.trim(), $('pw').value);
+    btn.disabled = false; btn.textContent = 'Sign in';
+
+    if (error) {
+      $('signin-err').textContent = error;
+      $('signin-err').classList.remove('hide');
+      return;
+    }
+    $('signin').classList.add('hide');
+    renderAuth();
+    $('save').textContent = 'Submit for review';
+  });
+
+  $('skipsignin')?.addEventListener('click', () => $('signin').classList.add('hide'));
+  $('signout')?.addEventListener('click', async () => {
+    await signOut();
+    $('signin').classList.remove('hide');
+    $('save').textContent = 'Save to catalog';
+  });
+
+  if (session) $('save').textContent = 'Submit for review';
 }
 
 /**
@@ -242,6 +360,72 @@ async function diagnose(ev) {
     btn.disabled = false;
     btn.textContent = 'Copy page structure';
   }
+}
+
+/**
+ * Submit as a product draft for the administrator to review.
+ *
+ * Images go to Storage first: a draft row referencing images that failed to
+ * upload would look complete but be unusable.
+ */
+async function saveToSupabase(title, images) {
+  const h = { apikey: supa.key, authorization: `Bearer ${session.token}` };
+
+  status('Creating draft…');
+  const draftRes = await fetch(`${supa.url}/rest/v1/product_drafts`, {
+    method: 'POST',
+    headers: { ...h, 'content-type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      store_id: session.storeId,
+      submitted_by: session.userId,
+      payload: {
+        title,
+        sourceAmount: $('price').value ? parseFloat($('price').value) : null,
+        sourceCurrency: nameCurrency(data.priceCurrency) ?? data.priceCurrency ?? null,
+        options: data.options,
+        specs: data.specs,
+        stockTotal: data.stockTotal ?? null,
+        sourceUrl: data.sourceUrl,
+        host: data.host,
+        images: [],
+      },
+    }),
+  });
+
+  if (!draftRes.ok) {
+    const err = await draftRes.json().catch(() => ({}));
+    // The quota trigger raises a readable message; surface it as-is.
+    return status(err.message ?? 'Could not create the draft.', 'bad');
+  }
+  const [draft] = await draftRes.json();
+
+  const uploaded = [];
+  for (const [n, im] of images.entries()) {
+    status(`Uploading image ${n + 1} of ${images.length}…`);
+    const path = `${session.storeId}/${draft.id}/${im.name}`;
+    const blob = await (await fetch(im.dataUrl)).blob();
+
+    const up = await fetch(
+      `${supa.url}/storage/v1/object/draft-images/${encodeURI(path)}`,
+      { method: 'POST', headers: { ...h, 'content-type': blob.type }, body: blob },
+    );
+    if (up.ok) uploaded.push({ path, name: im.name, variantValue: im.variantValue ?? null });
+    else console.error('[EshanExpress] upload failed', path, await up.text());
+  }
+
+  // Record what actually landed, so review never shows a missing image.
+  await fetch(`${supa.url}/rest/v1/product_drafts?id=eq.${draft.id}`, {
+    method: 'PATCH',
+    headers: { ...h, 'content-type': 'application/json' },
+    body: JSON.stringify({ payload: { ...draft.payload, images: uploaded } }),
+  });
+
+  const short = images.length - uploaded.length;
+  status(
+    `Submitted to ${session.storeName ?? 'your store'} for review`
+    + (short ? ` — ${short} image(s) failed to upload.` : ` with ${uploaded.length} image(s).`),
+    short ? 'warn' : 'ok');
+  $('save').textContent = 'Submitted';
 }
 
 function updateCount() {
@@ -362,6 +546,8 @@ async function doSave(title) {
       + 'manifest.json — then reload the extension at chrome://extensions.',
       'bad');
   }
+
+  if (session) return saveToSupabase(title, images);
 
   console.log(`[EshanExpress] sending ${images.length} image(s) to the editor`);
   status('Saving to your catalog…');
