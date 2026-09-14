@@ -82,6 +82,18 @@ describe('extractor against real pages', { skip: have ? false : 'samples missing
     assert.deepEqual(r.options, []);
   });
 
+  test('Temu: cart UI and seller badges are not mistaken for options', function () {
+    if (!JSDOM) return;
+    // A loose fallback matched "Subtotal / Free shipping / Select all" and a
+    // seller badge row as product options. A wrong option becomes a real
+    // variant in the catalog, so no options must beat bad ones.
+    const r = run('screen_protector.html', 'https://www.temu.com/x.html');
+    const flat = r.options.flatMap((o) => [o.name, ...o.values]).join(' ').toLowerCase();
+    for (const junk of ['subtotal', 'checkout', 'free shipping', 'star seller', 'followers']) {
+      assert.ok(!flat.includes(junk), `"${junk}" must not appear as an option`);
+    }
+  });
+
   test('Temu: rejects the placeholder price rather than reporting it', function () {
     if (!JSDOM) return;
     // The page contains "$0123456789.01" in a tracking node.

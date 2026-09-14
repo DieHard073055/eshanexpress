@@ -59,14 +59,23 @@ function toMvrCents(sourceAmount, cfg) {
 const fail = (msg) => {
   $('err').textContent = msg;
   $('err').classList.remove('hide');
+  // Extraction failing is exactly when the structure dump is wanted, so keep
+  // the button reachable rather than hiding it with the rest of the form.
+  $('diagfallback').classList.remove('hide');
 };
 
 const status = (msg, kind = 'warn') => {
-  const el = $('status');
+  // #status lives inside the results block, which stays hidden when
+  // extraction fails — fall back to the always-visible box so a message can
+  // never be written somewhere invisible.
+  const visible = !$('found').classList.contains('hide');
+  const el = visible ? $('status') : $('err');
   el.textContent = msg;
-  el.className = `note ${kind}`;
+  el.className = `note ${visible ? kind : 'warn'}`;
   el.classList.remove('hide');
 };
+
+document.getElementById('diag2')?.addEventListener('click', () => diagnose('diag2'));
 
 // ------------------------------------------------------------------ extract
 (async () => {
@@ -90,6 +99,14 @@ const status = (msg, kind = 'warn') => {
 
   if (!result?.title) {
     return fail('No product found on this page. Open the product page itself, not a search result.');
+  }
+
+  // Warn when the page rendered but yielded almost nothing — usually means
+  // the selectors do not match this site yet.
+  if (!result.priceNumber && result.options.length === 0
+      && result.swatches.length === 0 && result.gallery.length === 0) {
+    status('Only the title was found. Use "Copy page structure" below and send '
+      + 'it over so the selectors can be fixed for this site.', 'warn');
   }
 
   data = result;
@@ -202,6 +219,34 @@ function render() {
   });
 
   $('save').addEventListener('click', save);
+  $('diag').addEventListener('click', diagnose);
+}
+
+/**
+ * Dump the page's structure to the clipboard.
+ *
+ * Used when extraction comes back empty: reports class names, element counts
+ * and short text samples so selectors can be written from the real DOM.
+ */
+async function diagnose(which = 'diag') {
+  const btn = $(which);
+  btn.disabled = true;
+  btn.textContent = 'Reading…';
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [out] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['diagnose.js'],
+    });
+    const report = JSON.stringify(out?.result ?? {}, null, 2);
+    await navigator.clipboard.writeText(report);
+    status(`Copied ${(report.length / 1024).toFixed(1)} KB of page structure to the clipboard.`, 'ok');
+  } catch (e) {
+    status(`Could not read the page: ${e.message}`, 'bad');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Copy page structure';
+  }
 }
 
 function updateCount() {

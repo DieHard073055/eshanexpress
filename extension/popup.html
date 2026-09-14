@@ -38,6 +38,10 @@
 
   <div id="err" class="note bad hide"></div>
 
+  <div id="diagfallback" class="row hide" style="margin-top:10px">
+    <button id="diag2" style="flex:1;font-size:12px">Copy page structure</button>
+  </div>
+
   <div id="found" class="hide">
     <div class="box">
       <label for="title">Title <span class="muted">(edit before saving)</span></label>
@@ -69,6 +73,13 @@
     <div class="row" style="margin-top:11px">
       <button id="save" class="primary" style="flex:1">Save to catalog</button>
     </div>
+    <div class="row" style="margin-top:6px">
+      <button id="diag" style="flex:1;font-size:12px">Copy page structure</button>
+    </div>
+    <p class="muted" style="margin:4px 0 0;font-size:11px">
+      Nothing extracted? Copy the structure and send it over — the selectors
+      can then be written from what this page actually contains.
+    </p>
     <p class="muted" style="margin:7px 0 0">
       Saves to your local editor for review. Nothing is published.
     </p>

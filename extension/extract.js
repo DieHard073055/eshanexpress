@@ -70,6 +70,19 @@
       const t = text(document.querySelector(sel));
       if (new RegExp(CURRENCY + String.raw`\s*[\d,]`).test(t)) return t;
     }
+
+    // Sites like Temu split "$2.95" across nested spans, so no single element
+    // holds the whole string. Scan leaf-ish nodes for a complete amount and
+    // take the first with a decimal part — a bare integer is usually a badge
+    // ("5Pcs", "0") rather than a price.
+    const AMOUNT = new RegExp(CURRENCY + String.raw`\s*\d[\d,]*\.\d{2}`);
+    for (const el of document.querySelectorAll('span, div, p, strong, b')) {
+      if (el.children.length > 3) continue;
+      const t = text(el);
+      if (t.length > 60) continue;
+      const m = t.match(AMOUNT);
+      if (m) return m[0];
+    }
     // innerText is undefined when the page has not laid out yet (and in
     // jsdom), so fall back to textContent rather than throwing.
     const body = document.body?.innerText ?? document.body?.textContent ?? '';
@@ -131,14 +144,83 @@
     }
   }
 
+  // Generic fallback: a heading followed by a row of short-labelled buttons.
+  // This is how Temu renders "Compatible Model", and it carries no sku-*
+  // class names at all.
+  if (options.length === 0) {
+    const seenGroup = new Set();
+    for (const btn of document.querySelectorAll('button, [role="button"], [role="radio"]')) {
+      const parent = btn.parentElement;
+      if (!parent || seenGroup.has(parent)) continue;
+
+      const sibs = [...parent.children];
+      if (sibs.length < 3) continue;
+
+      const labels = sibs.map(text)
+        .map((t) => t.replace(/\s*(HOT|NEW|SALE)\s*$/i, '').trim())
+        .filter((t) => t && t.length <= 40);
+
+      // A real option row is mostly short labels, all distinct.
+      if (labels.length < 3 || labels.length < sibs.length * 0.7) continue;
+      if (new Set(labels).size !== labels.length) continue;
+
+      // Reject page furniture that happens to be a row of buttons: cart
+      // summaries, seller badges, nav. A wrong option becomes a real variant
+      // in the catalog, so no options beats bad ones.
+      const JUNK = /subtotal|checkout|go to cart|select all|free shipping|follow|sold|star seller|sign in|add to|wish|review|share|store|coupon|\$|%|^\d+$/i;
+      if (labels.some((l) => JUNK.test(l))) continue;
+
+      // Option values are terse ("iPhone 15 Pro", "Black"). A long average
+      // means this is prose, not a picker.
+      const avg = labels.reduce((n, l) => n + l.length, 0) / labels.length;
+      if (avg > 28) continue;
+
+      seenGroup.add(parent);
+
+      // The name is usually the text immediately above the row.
+      let name = text(parent.previousElementSibling);
+      if (!name || name.length > 40) name = text(parent.parentElement?.previousElementSibling);
+      name = (name ?? '').replace(/:$/, '').trim();
+
+      // Without a real heading this is probably not an option group at all.
+      // Guessing a name here is how cart UI ends up as a product option.
+      if (!name || name.length > 40 || /\d{3,}|\$/.test(name)) continue;
+
+      if (!options.some((o) => o.name === name)) {
+        options.push({ name, values: uniq(labels) });
+      }
+      if (options.length >= 4) break;
+    }
+  }
+
   // ----------------------------------------------------------------- images
   // The gallery plus any swatch thumbnails, which are usually the per-variant
   // images. Swatches are recorded with the value they sit next to so the
   // editor can map image -> variant.
-  const gallery = uniq([...document.querySelectorAll(
+  /** Lazy-loaded images keep the real URL in data-src or srcset. */
+  const imgSrc = (img) => {
+    const direct = img.currentSrc || img.src;
+    if (direct && !/^data:/.test(direct)) return direct;
+    const lazy = img.getAttribute('data-src') || img.getAttribute('data-original');
+    if (lazy) return lazy;
+    const set = img.getAttribute('srcset');
+    if (set) return set.split(',').pop().trim().split(/\s+/)[0];
+    return direct;
+  };
+
+  let gallery = uniq([...document.querySelectorAll(
     '[class*="gallery"] img, [class*="slider"] img, [class*="image-view"] img, main img')]
-    .map((img) => fullSize(img.currentSrc || img.src))
+    .map((img) => fullSize(imgSrc(img)))
     .filter(looksLikeProductImage));
+
+  // Nothing matched the gallery containers: fall back to the largest images
+  // on the page, which are the product shots on most layouts.
+  if (gallery.length === 0) {
+    gallery = uniq([...document.querySelectorAll('img')]
+      .filter((img) => (img.naturalWidth || img.width || 0) >= 100)
+      .map((img) => fullSize(imgSrc(img)))
+      .filter(looksLikeProductImage));
+  }
 
   // Per-variant images. On AliExpress the option value is the img alt, which
   // is what lets the editor map image -> variant.
