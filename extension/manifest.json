@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EshanExpress Product Capture",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Capture product details and variant images from a supplier page you have open, for review in your own catalog editor.",
   "permissions": [
     "activeTab",

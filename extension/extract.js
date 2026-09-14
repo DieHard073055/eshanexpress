@@ -80,9 +80,13 @@
   };
 
   const priceText = (() => {
-    for (const sel of ['[class*="price-default--wrap"]', '[class*="price--current"]',
+    // Most specific first. The AliExpress diagnostic showed
+    // price-default--wrap contains "US $37.12 Save US $37.87 …" while
+    // price-default--current holds exactly "US $37.12".
+    for (const sel of ['[class*="price-default--current"]', '[class*="price--current"]',
+                       '[class*="price-default--currentWrap"]',
                        '[class*="product-price-value"]', '[data-pl="product-price"]',
-                       '[class*="Price"]']) {
+                       '[class*="price-default--wrap"]', '[class*="Price"]']) {
       const t = text(document.querySelector(sel));
       if (new RegExp(CURRENCY + String.raw`\s*[\d,]`).test(t) && plausiblePrice(t)) return t;
     }

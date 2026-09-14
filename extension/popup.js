@@ -255,6 +255,27 @@ async function save() {
   const chosen = [...selected].map((i) => data._images[i]);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
 
+  // Chrome caches host permissions per extension version; editing the
+  // manifest without bumping the version can leave the old set in force.
+  // Check before fetching so the cause is named rather than guessed.
+  const hosts = [...new Set(chosen.map((im) => {
+    try { return new URL(im.src).origin; } catch { return null; }
+  }).filter(Boolean))];
+
+  const missing = [];
+  for (const origin of hosts) {
+    const ok = await chrome.permissions.contains({ origins: [`${origin}/*`] })
+      .catch(() => true);   // API unavailable: do not block, just try
+    if (!ok) missing.push(origin);
+  }
+  if (missing.length === hosts.length && hosts.length > 0) {
+    return status(
+      `No permission to fetch from ${missing.join(', ')}. `
+      + 'Reload the extension at chrome://extensions — if that does not help, '
+      + 'remove and re-add it, since Chrome caches permissions per version.',
+      'bad');
+  }
+
   const images = [];
   const failures = [];
   for (const [n, im] of chosen.entries()) {
@@ -281,15 +302,24 @@ async function save() {
     } catch (e) {
       // Usually a missing host permission, which silently yields zero images
       // if not surfaced. Record the host so the cause is obvious.
-      failures.push(`blocked: ${new URL(im.src).host}`);
+      let host = '?';
+      try { host = new URL(im.src).host; } catch { /* malformed url */ }
+      failures.push(`blocked: ${host}`);
     }
   }
 
   if (images.length === 0 && chosen.length > 0) {
+    // Group by reason so the actual cause is obvious rather than a sample.
+    const byReason = {};
+    for (const f of failures) byReason[f] = (byReason[f] ?? 0) + 1;
+    const summary = Object.entries(byReason)
+      .map(([r, n]) => `${n}× ${r}`).join(', ');
+
     return status(
-      `Could not fetch any of the ${chosen.length} images. `
-      + `${failures[0] ?? ''} — the image host may need adding to host_permissions `
-      + 'in manifest.json, then reload the extension.', 'bad');
+      `None of the ${chosen.length} images could be fetched. ${summary}. `
+      + 'If it says "blocked", that host needs adding to host_permissions in '
+      + 'manifest.json — then reload the extension at chrome://extensions.',
+      'bad');
   }
 
   status('Saving to your catalog…');
