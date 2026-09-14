@@ -222,13 +222,14 @@ async function save() {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
 
   const images = [];
+  const failures = [];
   for (const [n, im] of chosen.entries()) {
     status(`Fetching image ${n + 1} of ${chosen.length}…`);
     try {
       const res = await fetch(im.src);
-      if (!res.ok) continue;
+      if (!res.ok) { failures.push(`${res.status} on ${new URL(im.src).host}`); continue; }
       const blob = await res.blob();
-      if (blob.size > 8 * 1024 * 1024) continue;
+      if (blob.size > 8 * 1024 * 1024) { failures.push('too large'); continue; }
 
       const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
       const dataUrl = await new Promise((resolve) => {
@@ -243,9 +244,18 @@ async function save() {
         sourceUrl: im.src,
         variantValue: im.label || null,
       });
-    } catch {
-      // A blocked image is skipped rather than failing the whole capture.
+    } catch (e) {
+      // Usually a missing host permission, which silently yields zero images
+      // if not surfaced. Record the host so the cause is obvious.
+      failures.push(`blocked: ${new URL(im.src).host}`);
     }
+  }
+
+  if (images.length === 0 && chosen.length > 0) {
+    return status(
+      `Could not fetch any of the ${chosen.length} images. `
+      + `${failures[0] ?? ''} — the image host may need adding to host_permissions `
+      + 'in manifest.json, then reload the extension.', 'bad');
   }
 
   status('Saving to your catalog…');
@@ -268,7 +278,10 @@ async function save() {
     const out = await res.json();
     if (!res.ok) throw new Error(out.error ?? 'Save failed');
 
-    status(`Saved ${out.savedImages} image(s). ${out.staged} product(s) waiting in the editor.`, 'ok');
+    const skipped = chosen.length - images.length;
+    status(`Saved ${out.savedImages} image(s)`
+      + (skipped ? ` (${skipped} could not be fetched)` : '')
+      + `. ${out.staged} product(s) waiting in the editor.`, skipped ? 'warn' : 'ok');
     $('save').textContent = 'Saved';
   } catch (e) {
     status(`Could not reach the editor. Is "npm run admin" running? (${e.message})`, 'bad');
