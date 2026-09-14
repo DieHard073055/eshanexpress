@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EshanExpress — Payment Workbench</title>
+<style>
+  :root {
+    --bg:#f7f7f6; --card:#fff; --line:#e5e5e3; --ink:#1c1c1b; --muted:#6b6b68;
+    --brand:#ea580c; --brand-dark:#c2410c; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+    --ok-bg:#f0fdf4; --warn-bg:#fffbeb; --bad-bg:#fef2f2; --sky-bg:#f0f9ff;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { position:sticky; top:0; z-index:10; background:#fff;
+           border-bottom:1px solid var(--line); padding:12px 20px;
+           display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; font-weight:700; }
+  h1 span { color:var(--brand); }
+  .grow { flex:1; }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
+  button { font:inherit; border-radius:7px; padding:8px 14px; cursor:pointer; border:1px solid var(--line);
+           background:#fff; color:var(--ink); }
+  button:hover:not(:disabled) { border-color:#c9c9c6; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  button.primary:hover:not(:disabled) { background:var(--brand-dark); }
+  button.danger { color:var(--bad); border-color:#f3c9c9; }
+  input, textarea { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:7px; width:100%; }
+  label { font-weight:600; font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .muted { color:var(--muted); }
+  .small { font-size:12px; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:12px; font-weight:600; border:1px solid; }
+  .pill.ok   { background:var(--ok-bg);   color:var(--ok);   border-color:#bbf7d0; }
+  .pill.warn { background:var(--warn-bg); color:var(--warn); border-color:#fde68a; }
+  .pill.bad  { background:var(--bad-bg);  color:var(--bad);  border-color:#fecaca; }
+  .pill.sky  { background:var(--sky-bg);  color:#0369a1;     border-color:#bae6fd; }
+  .split { display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+  @media (max-width:860px) { .split { grid-template-columns:1fr; } }
+  .cand { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; cursor:pointer;
+          display:flex; justify-content:space-between; gap:12px; align-items:center; }
+  .cand:hover { border-color:var(--brand); }
+  .cand.sel { border-color:var(--brand); background:#fff7ed; }
+  .receipt { width:100%; border:1px solid var(--line); border-radius:8px; background:#fafafa;
+             max-height:420px; object-fit:contain; display:block; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:28px; text-align:center; color:var(--muted); }
+  .drop.over { border-color:var(--brand); background:#fff7ed; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .banner { padding:10px 12px; border-radius:8px; margin-bottom:12px; font-size:13px; border:1px solid; }
+  .banner.bad  { background:var(--bad-bg);  color:var(--bad);  border-color:#fecaca; }
+  .banner.warn { background:var(--warn-bg); color:var(--warn); border-color:#fde68a; }
+  .banner.ok   { background:var(--ok-bg);   color:var(--ok);   border-color:#bbf7d0; }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Eshan<span>Express</span> · Payment Workbench</h1>
+  <span class="grow"></span>
+  <span id="who" class="small muted"></span>
+  <button id="signout" class="hide">Sign out</button>
+</header>
+
+<main>
+  <!-- Sign in -->
+  <section id="auth" class="card" style="max-width:380px;margin:40px auto;">
+    <h2 style="margin:0 0 4px;font-size:15px;">Administrator sign-in</h2>
+    <p class="small muted" style="margin:0 0 16px;">
+      Runs locally. Your bank statement is read in this browser and never uploaded.
+    </p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" />
+    <div style="height:10px"></div>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+    <p id="auth-err" class="banner bad hide"></p>
+    <div style="height:14px"></div>
+    <button id="signin" class="primary" style="width:100%">Sign in</button>
+  </section>
+
+  <!-- Workbench -->
+  <section id="work" class="hide">
+    <div class="card">
+      <div class="row">
+        <strong>1. Load your bank statement</strong>
+        <span class="grow"></span>
+        <label for="window" style="margin:0">Match window</label>
+        <select id="window" style="padding:7px 10px;border:1px solid var(--line);border-radius:7px;">
+          <option value="6">± 6 hours</option>
+          <option value="24" selected>± 24 hours</option>
+          <option value="72">± 3 days</option>
+          <option value="168">± 7 days</option>
+        </select>
+      </div>
+      <div id="drop" class="drop" style="margin-top:12px;">
+        <p style="margin:0 0 8px;">Drop the CSV here, or</p>
+        <input id="file" type="file" accept=".csv,text/csv" style="width:auto" />
+      </div>
+      <div id="stmt-info" class="hide" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <strong>2. Orders awaiting payment review</strong>
+        <span class="grow"></span>
+        <button id="refresh">Refresh</button>
+        <button id="export">Export CSV</button>
+      </div>
+      <div id="orders" style="margin-top:12px;">
+        <p class="muted small">Sign in and load a statement to begin.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import {
+  parseStatement, findCandidates, matchQuality,
+} from '../src/lib/statement.js';
+
+// This page is NOT deployed. Configure it once with your project values.
+const SUPABASE_URL = localStorage.getItem('wb.url') || '';
+const SUPABASE_KEY = localStorage.getItem('wb.key') || '';
+
+let sb = null;
+let credits = [];
+let allocated = new Set();
+let orders = [];
+let statementLoaded = false;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const mvr = (cents) => `MVR ${(cents / 100).toFixed(2)}`;
+
+// ------------------------------------------------------------------ setup
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  const url = prompt('Supabase URL (stored locally, asked once):');
+  const key = prompt('Supabase publishable key (sb_publishable_...):');
+  if (url && key) {
+    localStorage.setItem('wb.url', url.trim());
+    localStorage.setItem('wb.key', key.trim());
+    location.reload();
+  }
+} else {
+  sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const { data } = await sb.auth.getSession();
+  if (data.session) await onSignedIn();
+}
+
+$('signin').addEventListener('click', async () => {
+  const err = $('auth-err');
+  err.classList.add('hide');
+  const btn = $('signin');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
+  const { error } = await sb.auth.signInWithPassword({
+    email: $('email').value.trim(), password: $('password').value,
+  });
+  btn.disabled = false; btn.textContent = 'Sign in';
+
+  if (error) {
+    err.textContent = 'Sign-in failed. Check the email and password.';
+    err.classList.remove('hide');
+    return;
+  }
+  await onSignedIn();
+});
+
+async function onSignedIn() {
+  const { data: { user } } = await sb.auth.getUser();
+  const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).maybeSingle();
+
+  if (profile?.role !== 'admin') {
+    $('auth-err').textContent = 'That account is not an administrator.';
+    $('auth-err').classList.remove('hide');
+    await sb.auth.signOut();
+    return;
+  }
+
+  $('auth').classList.add('hide');
+  $('work').classList.remove('hide');
+  $('who').textContent = user.email;
+  $('signout').classList.remove('hide');
+  await loadOrders();
+}
+
+$('signout').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+
+// -------------------------------------------------------------- statement
+const drop = $('drop');
+['dragenter','dragover'].forEach((e) => drop.addEventListener(e, (ev) => {
+  ev.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach((e) => drop.addEventListener(e, () => drop.classList.remove('over')));
+drop.addEventListener('drop', (ev) => {
+  ev.preventDefault();
+  const f = ev.dataTransfer.files?.[0];
+  if (f) readStatement(f);
+});
+$('file').addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (f) readStatement(f);
+});
+$('window').addEventListener('change', render);
+
+async function readStatement(file) {
+  const info = $('stmt-info');
+  info.classList.remove('hide');
+  try {
+    const text = await file.text();
+    const r = parseStatement(text);
+
+    if (!r.balanceOk) {
+      // A mismatched running balance means the parse is wrong. Matching
+      // against misread columns would be worse than not matching at all.
+      credits = []; statementLoaded = false;
+      info.innerHTML = `<div class="banner bad"><strong>Import rejected.</strong> ${esc(r.balanceError)}</div>`;
+      render();
+      return;
+    }
+
+    credits = r.credits;
+    statementLoaded = true;
+    const span = credits.length
+      ? `${credits[0].timestamp.toLocaleDateString()} – ${credits[credits.length-1].timestamp.toLocaleDateString()}`
+      : '—';
+
+    info.innerHTML = `
+      <div class="banner ok">
+        <strong>${r.transactions.length} rows read.</strong>
+        ${credits.length} incoming transfer${credits.length === 1 ? '' : 's'} available to match (${esc(span)}).
+        Balance reconciles.
+      </div>
+      ${r.warnings.length ? `<div class="banner warn">${r.warnings.map(esc).join('<br>')}</div>` : ''}`;
+    render();
+  } catch (e) {
+    credits = []; statementLoaded = false;
+    info.innerHTML = `<div class="banner bad">${esc(e.message)}</div>`;
+    render();
+  }
+}
+
+// ----------------------------------------------------------------- orders
+$('refresh').addEventListener('click', loadOrders);
+
+async function loadOrders() {
+  const { data, error } = await sb
+    .from('orders')
+    .select('id, order_number, status, total_cents, items, payment_reference, receipt_path, receipt_uploaded_at, created_at, matched_txn_ref, user_id')
+    .eq('status', 'payment_submitted')
+    .order('receipt_uploaded_at', { ascending: true });
+
+  if (error) {
+    $('orders').innerHTML = `<div class="banner bad">Could not load orders: ${esc(error.message)}</div>`;
+    return;
+  }
+  orders = data ?? [];
+
+  // Transfers already allocated to a confirmed order must never be offered
+  // again, or one payment could settle two orders.
+  const { data: used } = await sb
+    .from('orders').select('matched_txn_ref').not('matched_txn_ref', 'is', null);
+  allocated = new Set((used ?? []).map((o) => o.matched_txn_ref));
+
+  render();
+}
+
+function render() {
+  const box = $('orders');
+  if (orders.length === 0) {
+    box.innerHTML = `<p class="muted small">No orders are waiting for payment review.</p>`;
+    return;
+  }
+  if (!statementLoaded) {
+    box.innerHTML = `
+      <div class="banner warn">Load a bank statement to see candidate transfers.</div>
+      ${orders.map((o) => orderRow(o, [])).join('')}`;
+    wire();
+    return;
+  }
+
+  const windowHours = Number($('window').value);
+  box.innerHTML = orders
+    .map((o) => orderRow(o, findCandidates(o, credits, { windowHours, allocated })))
+    .join('');
+  wire();
+}
+
+function orderRow(o, candidates) {
+  const q = matchQuality(candidates);
+  const toneFor = { strong:'ok', single:'sky', ambiguous:'warn', none:'bad' };
+  const waited = Math.floor((Date.now() - new Date(o.receipt_uploaded_at ?? o.created_at)) / 3600000);
+
+  return `
+  <div class="card" data-order="${esc(o.id)}" style="margin-bottom:12px;">
+    <div class="row">
+      <strong class="mono">${esc(o.order_number)}</strong>
+      <span class="pill ${toneFor[q.level]}">${esc(q.text)}</span>
+      <span class="grow"></span>
+      <strong>${mvr(o.total_cents)}</strong>
+    </div>
+    <p class="small muted" style="margin:6px 0 0;">
+      Receipt uploaded ${o.receipt_uploaded_at ? new Date(o.receipt_uploaded_at).toLocaleString() : '—'}
+      ${waited >= 24 ? ` · <strong style="color:var(--warn)">waiting ${Math.floor(waited/24)}d</strong>` : ''}
+      · ${(o.items ?? []).map((i) => `${esc(i.title ?? i.sku)} ×${i.qty}`).join(', ')}
+    </p>
+
+    <div class="split" style="margin-top:12px;">
+      <div>
+        <label>Candidate transfers</label>
+        ${candidates.length === 0
+          ? `<p class="small muted">No transfer matches ${mvr(o.total_cents)} within the window.
+               Widen the window, or decline the order.</p>`
+          : candidates.map((c, i) => `
+              <div class="cand" data-pick="${esc(c.txn.txnId)}" data-for="${esc(o.id)}">
+                <div>
+                  <div class="mono small">${esc(c.txn.txnId)}</div>
+                  <div class="small muted">
+                    ${esc(c.txn.payer)} ·
+                    ${c.txn.timestamp.toLocaleString()} ·
+                    ${c.minutesApart < 60 ? `${c.minutesApart}m` : `${Math.round(c.minutesApart/60)}h`} apart
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div><strong>MVR ${c.txn.credit.toFixed(2)}</strong></div>
+                  ${c.refScore >= 85 ? `<span class="pill ok small">ref matches</span>`
+                    : c.refScore > 0 ? `<span class="pill warn small">ref similar</span>` : ''}
+                </div>
+              </div>`).join('')}
+
+        <div style="margin-top:12px">
+          <label for="ref-${esc(o.id)}">Payment reference (from OCR — correct it if wrong)</label>
+          <input id="ref-${esc(o.id)}" class="mono" value="${esc(o.payment_reference ?? '')}"
+                 data-ref="${esc(o.id)}" />
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <button class="primary" data-confirm="${esc(o.id)}" disabled>Confirm payment</button>
+          <button class="danger" data-decline="${esc(o.id)}">Decline</button>
+          <span class="small muted" data-status="${esc(o.id)}"></span>
+        </div>
+      </div>
+
+      <div>
+        <label>Receipt</label>
+        ${o.receipt_path
+          ? `<div data-receipt="${esc(o.id)}" data-path="${esc(o.receipt_path)}">
+               <button data-view="${esc(o.id)}" style="width:100%">View receipt</button>
+             </div>`
+          : `<p class="small muted">No receipt uploaded.</p>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- actions
+function wire() {
+  const picked = new Map();
+
+  document.querySelectorAll('[data-pick]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const orderId = el.dataset.for;
+      const card = el.closest('[data-order]');
+      card.querySelectorAll('[data-pick]').forEach((x) => x.classList.remove('sel'));
+      el.classList.add('sel');
+      picked.set(orderId, el.dataset.pick);
+      card.querySelector(`[data-confirm="${CSS.escape(orderId)}"]`).disabled = false;
+    });
+  });
+
+  document.querySelectorAll('[data-view]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const wrap = btn.closest('[data-receipt]');
+      btn.disabled = true; btn.textContent = 'Loading…';
+      const { data, error } = await sb.storage
+        .from('receipts').createSignedUrl(wrap.dataset.path, 300);
+      if (error || !data?.signedUrl) {
+        btn.disabled = false; btn.textContent = 'Receipt unavailable';
+        return;
+      }
+      wrap.innerHTML = `
+        <img class="receipt" src="${data.signedUrl}" alt="Payment receipt" />
+        <p class="small muted" style="margin:6px 0 0;">
+          <a href="${data.signedUrl}" target="_blank" rel="noopener">Open full size</a>
+          · link expires in 5 minutes
+        </p>`;
+    });
+  });
+
+  document.querySelectorAll('[data-confirm]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.confirm;
+      const txnId = picked.get(id);
+      const status = document.querySelector(`[data-status="${CSS.escape(id)}"]`);
+      const ref = document.querySelector(`[data-ref="${CSS.escape(id)}"]`)?.value.trim();
+      if (!txnId) return;
+
+      btn.disabled = true; status.textContent = 'Saving…';
+      const { error } = await sb.from('orders').update({
+        status: 'confirmed',
+        matched_txn_ref: txnId,
+        matched_at: new Date().toISOString(),
+        payment_reference: ref || null,
+      }).eq('id', id);
+
+      if (error) {
+        btn.disabled = false;
+        status.textContent = 'Failed — try again.';
+        return;
+      }
+      allocated.add(txnId);
+      await loadOrders();
+    });
+  });
+
+  document.querySelectorAll('[data-decline]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.decline;
+      const reason = prompt(
+        'Why is this being declined? The customer will see this.',
+        'We could not find a matching transfer for this order.',
+      );
+      if (!reason) return;
+
+      const status = document.querySelector(`[data-status="${CSS.escape(id)}"]`);
+      btn.disabled = true; status.textContent = 'Saving…';
+      const { error } = await sb.from('orders')
+        .update({ status: 'declined', decline_reason: reason.trim() })
+        .eq('id', id);
+      if (error) {
+        btn.disabled = false; status.textContent = 'Failed — try again.';
+        return;
+      }
+      await loadOrders();
+    });
+  });
+}
+
+// ---------------------------------------------------------------- export
+$('export').addEventListener('click', () => {
+  const rows = [['order_number','total_mvr','reference','receipt_uploaded_at','items']];
+  for (const o of orders) {
+    rows.push([
+      o.order_number,
+      (o.total_cents / 100).toFixed(2),
+      o.payment_reference ?? '',
+      o.receipt_uploaded_at ?? '',
+      (o.items ?? []).map((i) => `${i.title ?? i.sku} x${i.qty}`).join('; '),
+    ]);
+  }
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
+  a.download = `pending-orders-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+});
+</script>
+</body>
+</html>

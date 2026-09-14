@@ -71,12 +71,30 @@ whatever totals the database already holds.
 | 1. Scaffold + deploy workflow | done |
 | 2. Catalog pipeline | done |
 | 3. Storefront (listing, product, cart) | done |
-| 4. Supabase project + client | done (auth UI next) |
-| 5. Checkout + receipt upload + OCR | not started |
-| 6. Order history | not started |
-| 7. Store-owner portal | not started |
-| 8. Admin (offline) | not started |
-| 9. Matching workbench (offline) | not started |
+| 4. Supabase schema, RLS, auth | done |
+| 5. Checkout + receipt upload + OCR | done |
+| 6. Order history | done |
+| 7. Store-owner portal | done |
+| 8. Admin product entry (offline) | not started |
+| 9. Matching workbench (offline) | done |
+
+## Payment workbench (offline)
+
+Open `admin-offline/workbench.html` locally — it is never deployed. On first
+run it asks for your Supabase URL and publishable key and stores them in that
+browser.
+
+1. Sign in with your admin account.
+2. Drop in the bank statement CSV. It is parsed **in the browser** and never
+   uploaded, never stored in Supabase.
+3. For each order, pick the matching transfer and confirm, or decline with a
+   reason the customer will see.
+
+The import is **rejected** if the running balance does not reconcile, since
+that means the columns were misread. Only `Transfer Credit` rows can match.
+Nothing auto-confirms — Confirm stays disabled until you pick a transfer. A
+transfer allocated to one order disappears from every other order's
+candidates, so one payment can never settle two orders.
 
 ## Deployment
 
