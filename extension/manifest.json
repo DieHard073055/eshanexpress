@@ -9,11 +9,12 @@
   ],
   "host_permissions": [
     "http://127.0.0.1:4321/*",
+    "https://*.aliexpress-media.com/*",
     "https://*.alicdn.com/*",
     "https://*.aliexpress.com/*",
     "https://*.kwcdn.com/*",
-    "https://*.temu.com/*",
-    "https://*.tmcdn.net/*"
+    "https://*.tmcdn.net/*",
+    "https://*.temu.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

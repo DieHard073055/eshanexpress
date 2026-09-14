@@ -1,11 +1,11 @@
 {
   "_comment": "Sourcing currency conversion. Update `rate` when your exchange moves.",
 
-  "sourceCurrency": "SGD",
+  "sourceCurrency": "USD",
   "targetCurrency": "MVR",
 
   "_rate": "MVR per 1 unit of sourceCurrency, from your licensed exchange.",
-  "rate": 11.85,
+  "rate": 21,
   "rateUpdated": "2026-09-14",
 
   "_fee": "Applied on top of the converted amount: percent first, then flat.",
@@ -14,5 +14,11 @@
 
   "_rounding": "up | nearest | none — applied last, to the whole MVR amount.",
   "rounding": "up",
-  "roundToMvr": 5
+  "roundToMvr": 5,
+
+  "_rates": "Other currencies you browse in. The capture records which one the page showed, and the editor converts with the matching rate.",
+  "rates": {
+    "USD": 21,
+    "SGD": 16.4
+  }
 }

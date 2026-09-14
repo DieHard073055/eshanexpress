@@ -129,44 +129,30 @@ function render() {
 
   $('title').value = data.title;
 
-  // The page price is in the sourcing currency; the store sells in MVR.
-  // Only convert when the page is ACTUALLY showing that currency.
-  const match = pricing
-    ? currencyMatches(data.priceCurrency, pricing.sourceCurrency) : null;
+  // The capture records the SOURCE price and the currency the page showed.
+  // Conversion happens in the editor at import time, where the rate is
+  // visible and can be corrected — converting here would bake in whatever
+  // rate happened to be stored when the tab was captured.
+  const code = nameCurrency(data.priceCurrency);
+  $('price').value = data.priceNumber ?? '';
 
-  const shouldConvert = pricing && data.priceNumber != null && match === true;
-  const converted = shouldConvert ? toMvrCents(data.priceNumber, pricing) : null;
-
-  $('price').value = converted != null
-    ? (converted / 100).toFixed(2)
-    : (data.priceNumber ?? '');
-
-  if (converted != null) {
-    $('pricenote').textContent =
-      `${pricing.sourceCurrency} ${data.priceNumber.toFixed(2)} × ${pricing.rate}`
-      + (pricing.feePercent ? ` +${pricing.feePercent}%` : '')
-      + (pricing.flatFeeMvr ? ` +MVR ${pricing.flatFeeMvr}` : '')
-      + ` = MVR ${(converted / 100).toFixed(2)}`;
-    $('pricenote').className = 'muted';
-  } else if (pricing && data.priceNumber != null && match === false) {
-    // The common, costly mistake: browsing in the wrong currency.
-    const seen = nameCurrency(data.priceCurrency) ?? data.priceCurrency;
-    $('currwarn').innerHTML =
-      `<strong>This page is showing ${escapeHtml(seen)}, not ${escapeHtml(pricing.sourceCurrency)}.</strong><br>`
-      + `Switch the site to ${escapeHtml(pricing.sourceCurrency)} and reopen this popup, `
-      + `or type the MVR price yourself. Not converting.`;
-    $('currwarn').classList.remove('hide');
-    $('pricenote').textContent = `Page showed ${data.priceText} — left unconverted.`;
-  } else if (pricing && data.priceNumber != null && match === null) {
-    $('pricenote').textContent =
-      `Could not tell the currency from "${data.priceText}". Check the price before saving.`;
+  if (data.priceNumber != null) {
+    const known = code && pricing?.rates?.[code];
+    $('pricenote').textContent = known
+      ? `${code} ${data.priceNumber.toFixed(2)} — converts to about `
+        + `MVR ${(toMvrCents(data.priceNumber, { ...pricing, rate: pricing.rates[code] }) / 100).toFixed(2)} at import`
+      : code
+        ? `${code} ${data.priceNumber.toFixed(2)} — no ${code} rate configured; set one before importing.`
+        : `Page showed ${data.priceText} — currency unrecognised, check it at import.`;
   } else if (data.priceText) {
-    $('pricenote').textContent = pricing
-      ? `Page showed ${data.priceText} — could not read a number, enter MVR yourself.`
-      : `Page showed ${data.priceText}. Editor not running, so no conversion applied.`;
+    $('pricenote').textContent = `Page showed ${data.priceText} — could not read a number.`;
   } else {
-    $('pricenote').textContent = 'No price found — enter the MVR price yourself.';
+    $('pricenote').textContent = 'No price found on this page.';
   }
+
+  // Show which currency will be recorded, so a wrong site setting is obvious
+  // before saving rather than after importing.
+  $('currlabel').textContent = code ? `Price (${code})` : 'Price (currency unknown)';
 
   // Options, read-only: they are the supplier's, and editing them here would
   // desync from the variants the editor builds.
@@ -314,7 +300,10 @@ async function save() {
       body: JSON.stringify({
         product: {
           title,
-          priceCents: $('price').value ? Math.round(parseFloat($('price').value) * 100) : null,
+          // Stored in the SOURCE currency; the editor converts at import.
+          sourceAmount: $('price').value ? parseFloat($('price').value) : null,
+          sourceCurrency: nameCurrency(data.priceCurrency) ?? data.priceCurrency ?? null,
+          priceText: data.priceText ?? null,
           options: data.options,
           specs: data.specs,
           sourceUrl: data.sourceUrl,

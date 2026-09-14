@@ -213,6 +213,18 @@ let stores = [];
 let images = [];
 let selected = null;   // index into doc.products
 let captured = [];     // staged extension captures
+let pricing = null;    // data/pricing.json, for converting captured prices
+
+/** Same formula as src/lib/pricing.js: rate, then percent, then flat. */
+function convertMvr(sourceAmount, rate) {
+  if (!pricing || !Number.isFinite(sourceAmount) || !Number.isFinite(rate)) return null;
+  const withFlat = sourceAmount * rate * (1 + (pricing.feePercent ?? 0) / 100)
+    + (pricing.flatFeeMvr ?? 0);
+  let final = withFlat;
+  if (pricing.rounding === 'up') final = Math.ceil(withFlat / pricing.roundToMvr) * pricing.roundToMvr;
+  else if (pricing.rounding === 'nearest') final = Math.round(withFlat / pricing.roundToMvr) * pricing.roundToMvr;
+  return Math.round(final * 100);
+}
 let dirty = false;
 
 // --------------------------------------------------------------- helpers
@@ -249,6 +261,7 @@ async function load() {
     stores = d.stores.stores ?? [];
     images = d.images ?? [];
     captured = d.captured ?? [];
+    pricing = d.pricing ?? null;
     renderStores();
     renderList();
     renderCaptured();
@@ -641,25 +654,48 @@ function renderCaptured() {
     return;
   }
 
-  box.innerHTML = captured.map((c, i) => `
+  box.innerHTML = captured.map((c, i) => {
+    const cur = c.sourceCurrency ?? null;
+    const amt = c.sourceAmount ?? (c.priceCents != null ? c.priceCents / 100 : null);
+    const rate = cur && pricing?.rates?.[cur];
+    const mvr = (rate != null && amt != null) ? convertMvr(amt, rate) : null;
+
+    return `
     <div class="list-item" style="display:block">
       <div style="font-weight:600">${esc(c.title)}</div>
-      <div class="small muted">
-        ${c.priceCents != null ? 'MVR ' + (c.priceCents / 100).toFixed(2) : 'no price'} ·
-        ${c.images.length} image(s) ·
-        ${(c.options ?? []).length} option(s)
+      <div class="small muted" style="margin-top:2px">
+        ${amt != null
+          ? `${esc(cur ?? '?')} ${amt.toFixed(2)}`
+            + (mvr != null ? ` → <strong>MVR ${(mvr / 100).toFixed(2)}</strong>` : '')
+          : 'no price'}
+        · ${(c.options ?? []).length} option(s)
+        · ${esc(c.host ?? '')}
       </div>
-      <div class="thumbs" style="margin-top:6px">
-        ${c.images.slice(0, 6).map((im) => `
-          <div class="thumb" style="width:44px;height:44px">
-            <img src="/images/${encodeURIComponent(im.name)}" alt="" />
-          </div>`).join('')}
-      </div>
+
+      ${amt != null && mvr == null ? `
+        <div class="small" style="color:var(--warn);margin-top:4px">
+          No rate configured for ${esc(cur ?? 'this currency')} — set one in data/pricing.json.
+        </div>` : ''}
+
+      ${c.images.length === 0 ? `
+        <div class="small" style="color:var(--bad);margin-top:4px">
+          No images captured. The image host may be missing from the
+          extension's host_permissions.
+        </div>`
+      : `<div class="thumbs" style="margin-top:6px">
+          ${c.images.slice(0, 6).map((im) => `
+            <div class="thumb" style="width:44px;height:44px">
+              <img src="/images/${encodeURIComponent(im.name)}" alt="" />
+            </div>`).join('')}
+          ${c.images.length > 6 ? `<span class="small muted" style="align-self:center">+${c.images.length - 6}</span>` : ''}
+        </div>`}
+
       <div style="display:flex;gap:6px;margin-top:8px">
         <button data-cap-add="${i}" class="primary small" style="flex:1">Add to catalog</button>
         <button data-cap-del="${i}" class="danger small">Discard</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   box.querySelectorAll('[data-cap-add]').forEach((btn) => {
     btn.addEventListener('click', () => adoptCapture(Number(btn.dataset.capAdd)));
@@ -686,6 +722,13 @@ function adoptCapture(i) {
   const c = captured[i];
   const slug = c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20);
   const sku = `CP-${Date.now().toString().slice(-6)}`;
+
+  // Convert at import time using the recorded source currency, so the rate
+  // in force now is used rather than whatever was stored at capture time.
+  const cur = c.sourceCurrency ?? null;
+  const amt = c.sourceAmount ?? (c.priceCents != null ? c.priceCents / 100 : null);
+  const rate = cur && pricing?.rates?.[cur];
+  const converted = (rate != null && amt != null) ? convertMvr(amt, rate) : (c.priceCents ?? 0);
 
   const product = {
     sku,
@@ -716,13 +759,13 @@ function adoptCapture(i) {
       return {
         sku: `${sku}-${String(n + 1).padStart(2, '0')}`,
         choices,
-        priceCents: c.priceCents ?? 0,
+        priceCents: converted,
         stockTotal: 0,
         ...(match ? { image: match.name } : {}),
       };
     });
   } else {
-    product.priceCents = c.priceCents ?? 0;
+    product.priceCents = converted;
     product.stockTotal = 0;
   }
 

@@ -133,7 +133,10 @@ const server = createServer(async (req, res) => {
       const captured = existsSync(capturedPath)
         ? JSON.parse(await readFile(capturedPath, 'utf8')).captured ?? []
         : [];
-      return json(res, 200, { products, stores, images, captured });
+      const pricingPath = join(DATA, 'pricing.json');
+      const pricing = existsSync(pricingPath)
+        ? JSON.parse(await readFile(pricingPath, 'utf8')) : null;
+      return json(res, 200, { products, stores, images, captured, pricing });
     }
 
     if (path === '/api/products' && req.method === 'PUT') {
