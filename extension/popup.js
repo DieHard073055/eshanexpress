@@ -305,13 +305,20 @@ async function doSave(title) {
 
   const images = [];
   const failures = [];
+  // Logged so a failure can be read off the popup console instead of guessed
+  // at. Right-click the popup -> Inspect to see it.
+  console.log(`[EshanExpress] fetching ${chosen.length} image(s)`, chosen.map((c) => c.src));
+
   for (const [n, im] of chosen.entries()) {
     status(`Fetching image ${n + 1} of ${chosen.length}…`);
     try {
       const res = await fetch(im.src);
+      console.log(`[EshanExpress] #${n + 1} ${res.status} ${res.headers.get('content-type')} ${im.src}`);
       if (!res.ok) { failures.push(`${res.status} on ${new URL(im.src).host}`); continue; }
       const blob = await res.blob();
+      console.log(`[EshanExpress] #${n + 1} blob ${blob.size} bytes, type "${blob.type}"`);
       if (blob.size > 8 * 1024 * 1024) { failures.push('too large'); continue; }
+      if (blob.size === 0) { failures.push('empty response'); continue; }
 
       const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
       const dataUrl = await new Promise((resolve) => {
@@ -320,18 +327,16 @@ async function doSave(title) {
         r.readAsDataURL(blob);
       });
 
-      images.push({
-        name: `${slug}-${n + 1}.${ext}`,
-        dataUrl,
-        sourceUrl: im.src,
-        variantValue: im.label || null,
-      });
+      const name = `${slug}-${n + 1}.${ext}`;
+      console.log(`[EshanExpress] #${n + 1} -> ${name} (${dataUrl.length} chars)`);
+      images.push({ name, dataUrl, sourceUrl: im.src, variantValue: im.label || null });
     } catch (e) {
       // Usually a missing host permission, which silently yields zero images
       // if not surfaced. Record the host so the cause is obvious.
       let host = '?';
       try { host = new URL(im.src).host; } catch { /* malformed url */ }
-      failures.push(`blocked: ${host}`);
+      console.error(`[EshanExpress] #${n + 1} FAILED`, im.src, e);
+      failures.push(`blocked: ${host} (${e.message})`);
     }
   }
 
@@ -349,6 +354,7 @@ async function doSave(title) {
       'bad');
   }
 
+  console.log(`[EshanExpress] sending ${images.length} image(s) to the editor`);
   status('Saving to your catalog…');
   try {
     const res = await fetch(`${ADMIN}/api/capture`, {
@@ -370,6 +376,7 @@ async function doSave(title) {
       }),
     });
     const out = await res.json();
+    console.log('[EshanExpress] server replied', out);
     if (!res.ok) throw new Error(out.error ?? 'Save failed');
 
     const skipped = chosen.length - images.length;
@@ -377,7 +384,7 @@ async function doSave(title) {
     status(
       none
         ? `Saved the product but NO images (${chosen.length} were selected). `
-          + 'Check the console for the reason.'
+          + (out.rejected?.length ? out.rejected[0] : 'Check the popup console.')
         : `Saved ${out.savedImages} image(s)`
           + (skipped ? ` (${skipped} could not be fetched)` : '')
           + `. ${out.staged} product(s) waiting in the editor.`,

@@ -88,18 +88,36 @@ const server = createServer(async (req, res) => {
       await mkdir(IMAGES, { recursive: true });
       const saved = [];
 
+      // Rejections are reported rather than silently skipped: a capture that
+      // saves zero images should say why, not just return a count of 0.
+      const rejected = [];
       for (const img of images) {
-        const name = safeName(img?.name ?? '');
-        if (!name || !/\.(jpe?g|png|webp)$/i.test(name)) continue;
-        if (typeof img.dataUrl !== 'string') continue;
+        const raw = img?.name ?? '';
+        const name = safeName(raw);
+        if (!name) { rejected.push(`${raw}: unsafe filename`); continue; }
+        if (!/\.(jpe?g|png|webp)$/i.test(name)) {
+          rejected.push(`${name}: not a jpg/png/webp`); continue;
+        }
+        if (typeof img.dataUrl !== 'string') {
+          rejected.push(`${name}: dataUrl missing or not a string`); continue;
+        }
 
         const comma = img.dataUrl.indexOf(',');
-        if (comma < 0) continue;
+        if (comma < 0) { rejected.push(`${name}: malformed data URL`); continue; }
+
         const bytes = Buffer.from(img.dataUrl.slice(comma + 1), 'base64');
-        if (!bytes.length || bytes.length > 8 * 1024 * 1024) continue;
+        if (!bytes.length) { rejected.push(`${name}: decoded to 0 bytes`); continue; }
+        if (bytes.length > 8 * 1024 * 1024) {
+          rejected.push(`${name}: ${(bytes.length / 1048576).toFixed(1)}MB exceeds 8MB`); continue;
+        }
 
         await writeFile(join(IMAGES, name), bytes);
         saved.push({ name, bytes: bytes.length, sourceUrl: img.sourceUrl ?? null });
+      }
+
+      if (rejected.length) {
+        console.log(`  capture "${product.title?.slice(0, 40)}": rejected ${rejected.length} image(s)`);
+        for (const r of rejected) console.log(`    - ${r}`);
       }
 
       // Staged separately so a capture can never overwrite the live catalog.
@@ -110,8 +128,10 @@ const server = createServer(async (req, res) => {
       stage.captured.push({ ...product, images: saved, capturedAt: new Date().toISOString() });
       await writeFile(stagePath, JSON.stringify(stage, null, 2) + '\n');
 
+      console.log(`  capture "${product.title?.slice(0, 40)}": saved ${saved.length} image(s)`);
       return json(res, 200, {
         ok: true, savedImages: saved.length, staged: stage.captured.length,
+        rejected,
       });
     }
 
