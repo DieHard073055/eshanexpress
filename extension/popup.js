@@ -378,6 +378,7 @@ async function doSave(title) {
           priceText: data.priceText ?? null,
           options: data.options,
           specs: data.specs,
+          stockTotal: data.stockTotal ?? null,
           sourceUrl: data.sourceUrl,
           host: data.host,
         },

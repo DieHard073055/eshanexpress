@@ -204,6 +204,15 @@
 </main>
 
 <script type="module">
+import { mapImagesToVariants, describeMapping } from '/src/lib/image-match.js';
+
+/**
+ * Supplier stock is dropshipper inventory you do not hold. Cap what the
+ * storefront advertises so an order can always be fulfilled; a genuinely
+ * smaller count (3 left) still shows through.
+ */
+const STOCK_CAP = 10;
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
   (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -609,7 +618,13 @@ function renderVariants(p) {
 
   if (!list.length) return;
 
-  const pool = p.images ?? [];
+  // Every image the product can reference: its own, plus any already
+  // assigned to a variant. Without the latter an auto-mapped swatch would
+  // show as "none" simply because it is not a product-level image.
+  const pool = [...new Set([
+    ...(p.images ?? []),
+    ...list.map((v) => v.image).filter(Boolean),
+  ])];
 
   rows.innerHTML = `
     <div class="small muted" style="display:grid;grid-template-columns:1.4fr 90px 80px 1fr;gap:6px;padding:0 2px 4px">
@@ -751,22 +766,30 @@ function adoptCapture(i) {
       combos = combos.flatMap((base) => o.values.map((v) => ({ ...base, [o.name]: v })));
     }
 
-    product.variants = combos.map((choices, n) => {
-      // An image whose recorded swatch value matches one of these choices.
-      const match = c.images.find((im) =>
-        im.variantValue && Object.values(choices).some(
-          (v) => String(v).toLowerCase() === String(im.variantValue).toLowerCase()));
-      return {
-        sku: `${sku}-${String(n + 1).padStart(2, '0')}`,
-        choices,
-        priceCents: converted,
-        stockTotal: 0,
-        ...(match ? { image: match.name } : {}),
-      };
-    });
+    product.variants = combos.map((choices, n) => ({
+      sku: `${sku}-${String(n + 1).padStart(2, '0')}`,
+      choices,
+      priceCents: converted,
+      // Supplier counts are dropshipper inventory you do not hold. Never
+      // advertise more than STOCK_CAP; a genuinely lower count shows through.
+      stockTotal: Math.min(c.stockTotal ?? 0, STOCK_CAP),
+    }));
+
+    // Swatch images carry the option value they sat beside on the supplier
+    // page, so they map themselves. Gallery shots carry nothing and become
+    // product-level images rather than being guessed onto a variant.
+    const mapping = mapImagesToVariants(c.images, product.variants);
+    for (const v of product.variants) {
+      const img = mapping.assignments.get(v.sku);
+      if (img) v.image = img;
+    }
+    product.images = mapping.productImages.length
+      ? mapping.productImages
+      : c.images.map((im) => im.name);
+    product._mapping = mapping;
   } else {
     product.priceCents = converted;
-    product.stockTotal = 0;
+    product.stockTotal = Math.min(c.stockTotal ?? 0, STOCK_CAP);
   }
 
   doc.products.push(product);
@@ -779,10 +802,20 @@ function adoptCapture(i) {
   select(doc.products.length - 1);
   document.querySelector('.tab[data-tab="products"]').click();
 
-  const mapped = (product.variants ?? []).filter((v) => v.image).length;
-  banner('ok', `Added with ${product.variants?.length ?? 0} variant(s).` +
-    (mapped ? ` ${mapped} already have an image.` : '') +
-    ' Set prices and stock, then save.', 9000);
+  const m = product._mapping;
+  delete product._mapping;   // never persist it
+
+  if (m) {
+    const summary = describeMapping(m, product.variants?.length ?? 0);
+    const loose = m.uncertain.length
+      ? '<br>Loosely matched: ' + m.uncertain
+        .map((u) => `${esc(u.value)} → ${esc(u.matchedValue)}`).join(', ')
+      : '';
+    banner(m.uncertain.length ? 'warn' : 'ok',
+      `Added ${product.variants?.length ?? 0} variant(s). ${esc(summary)}.${loose}`, 12000);
+  } else {
+    banner('ok', 'Added. Set price and stock, then save.', 8000);
+  }
 }
 
 // ----------------------------------------------------------------- drafts

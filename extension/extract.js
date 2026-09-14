@@ -254,6 +254,18 @@
     }
   }
 
+  // ------------------------------------------------------------------ stock
+  // Suppliers state availability as "9978 available" or "3 pieces left".
+  // Recorded so the editor can cap it; not shown to shoppers as-is.
+  const stockTotal = (() => {
+    const body = document.body?.innerText ?? document.body?.textContent ?? '';
+    const m = body.match(/([\d,]+)\s*(?:pieces?|pcs?)?\s*available/i)
+      || body.match(/only\s+([\d,]+)\s+left/i);
+    if (!m) return null;
+    const n = parseInt(m[1].replace(/,/g, ''), 10);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  })();
+
   // ------------------------------------------------------------------ specs
   const specs = {};
   for (const row of document.querySelectorAll(
@@ -274,6 +286,7 @@
     priceCurrency,
     options,
     specs,
+    stockTotal,
     gallery: gallery.slice(0, 12),
     swatches: swatches.slice(0, 40),
     sourceUrl: location.href.split('?')[0],

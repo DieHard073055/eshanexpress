@@ -107,6 +107,25 @@ is set to. If the page is showing Rf or USD while your config says SGD, the
 extension refuses to convert and tells you to switch the site to SGD — a
 silent conversion there would price everything ~12x wrong.
 
+### Captured images map themselves
+
+Swatch images carry the option value they sat beside on the supplier page, so
+adopting a capture assigns each to every variant sharing that value — one
+"Black" swatch covers Black/S, Black/M and Black/L. Gallery shots carry no
+value and become the product's own images rather than being guessed onto a
+variant.
+
+Matching is loose on purpose (suppliers write "black", "Black" and "Black
+Blue Light A" for the same swatch), but anything matched loosely is listed in
+the editor so a wrong mapping is visible rather than silent.
+
+### Supplier stock is capped
+
+Supplier counts are dropshipper inventory you do not hold — one listing showed
+69,828. Imports and captures cap stock at **10** per variant, so the shop
+never advertises more than you can source. A genuinely smaller count (3 left)
+still shows through honestly.
+
 ### Stock authority
 
 The database owns inventory at checkout. `scripts/sync-stock.mjs` pushes
