@@ -84,11 +84,20 @@
         <div class="tabs">
           <button class="tab sel" data-tab="products">Products</button>
           <button class="tab" data-tab="drafts">Drafts <span id="draftCount" class="muted"></span></button>
+          <button class="tab" data-tab="captured">Captured <span id="capCount" class="muted"></span></button>
         </div>
 
         <div id="tab-products">
           <button id="add" class="primary" style="width:100%">New product</button>
           <div id="list" style="margin-top:10px;"></div>
+        </div>
+
+        <div id="tab-captured" class="hide">
+          <p class="small muted" style="margin:0 0 8px;">
+            Products captured with the browser extension. Review, then add to
+            the catalog.
+          </p>
+          <div id="captured"></div>
         </div>
 
         <div id="tab-drafts" class="hide">
@@ -179,6 +188,11 @@
           <div id="thumbs" class="thumbs"></div>
         </div>
 
+        <div id="variantPanel" class="field hide">
+          <label>Variants <span class="muted small">(price, stock and image per combination)</span></label>
+          <div id="variantRows"></div>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:16px;">
           <button id="dup">Duplicate</button>
           <span class="grow"></span>
@@ -198,6 +212,7 @@ let doc = { currency: 'MVR', products: [] };
 let stores = [];
 let images = [];
 let selected = null;   // index into doc.products
+let captured = [];     // staged extension captures
 let dirty = false;
 
 // --------------------------------------------------------------- helpers
@@ -233,8 +248,10 @@ async function load() {
     doc = d.products;
     stores = d.stores.stores ?? [];
     images = d.images ?? [];
+    captured = d.captured ?? [];
     renderStores();
     renderList();
+    renderCaptured();
   } catch (e) {
     banner('bad', `Could not load data. Is <span class="mono">npm run admin</span> running? <br>${esc(e.message)}`);
   }
@@ -291,6 +308,7 @@ function select(i) {
 
   renderSpecs(p.specs ?? {});
   renderThumbs(p.images ?? []);
+  renderVariants(p);
   renderList();
   validate();
 }
@@ -444,13 +462,33 @@ function validate() {
   if (!p.title?.trim()) errs.push('Title is required.');
   if (!stores.some((s) => s.slug === p.storeSlug)) errs.push('Pick a store.');
 
-  if (!Number.isInteger(p.priceCents)) errs.push('Price is required.');
-  else if (p.priceCents < 0) errs.push('Price cannot be negative.');
+  const vlist = p.variants ?? [];
+  if (vlist.length) {
+    const names = (p.options ?? []).map((o) => o.name);
+    const seen = new Set();
+    for (const v of vlist) {
+      const label = Object.values(v.choices ?? {}).join(' · ') || v.sku;
+      if (!Number.isInteger(v.priceCents)) errs.push(`${label}: price is required.`);
+      else if (v.priceCents < 0) errs.push(`${label}: price cannot be negative.`);
+      if (!Number.isInteger(v.stockTotal) || v.stockTotal < 0) errs.push(`${label}: stock must be 0 or more.`);
+      const key = names.map((n) => v.choices?.[n]).join('\u0000');
+      if (seen.has(key)) errs.push(`${label}: duplicate combination.`);
+      seen.add(key);
+    }
+    if (!vlist.some((v) => v.stockTotal > 0)) {
+      warns.push('Every variant has zero stock, so this shows as sold out.');
+    }
+  } else {
+    if (!Number.isInteger(p.priceCents)) errs.push('Price is required.');
+    else if (p.priceCents < 0) errs.push('Price cannot be negative.');
+  }
 
   if (p.compareAtCents != null && p.compareAtCents <= (p.priceCents ?? 0)) {
     warns.push('"Was" price is not above the price, so no discount will show.');
   }
-  if (!Number.isInteger(p.stockTotal) || p.stockTotal < 0) errs.push('Quantity must be a whole number, 0 or more.');
+  if (!vlist.length && (!Number.isInteger(p.stockTotal) || p.stockTotal < 0)) {
+    errs.push('Quantity must be a whole number, 0 or more.');
+  }
   if (p.leadTimeDays != null && (!Number.isInteger(p.leadTimeDays) || p.leadTimeDays < 1)) {
     errs.push('Lead time must be a whole number of days.');
   }
@@ -543,12 +581,174 @@ $('save').addEventListener('click', async () => {
   }
 });
 
+// ---------------------------------------------------------------- variants
+function renderVariants(p) {
+  const panel = $('variantPanel');
+  const rows = $('variantRows');
+  const list = p.variants ?? [];
+
+  panel.classList.toggle('hide', list.length === 0);
+
+  // Price and stock live on variants, so the product-level inputs would be
+  // misleading there. Toggle both ways: a simple product still needs them.
+  $('f-price').closest('.field').classList.toggle('hide', list.length > 0);
+  $('f-stock').closest('.field').classList.toggle('hide', list.length > 0);
+
+  if (!list.length) return;
+
+  const pool = p.images ?? [];
+
+  rows.innerHTML = `
+    <div class="small muted" style="display:grid;grid-template-columns:1.4fr 90px 80px 1fr;gap:6px;padding:0 2px 4px">
+      <span>Combination</span><span>Price (MVR)</span><span>Stock</span><span>Image</span>
+    </div>` + list.map((v, i) => `
+    <div style="display:grid;grid-template-columns:1.4fr 90px 80px 1fr;gap:6px;margin-bottom:5px;align-items:center">
+      <span class="small">${esc(Object.values(v.choices ?? {}).join(' · '))}</span>
+      <input data-vp="${i}" type="number" min="0" step="0.01"
+             value="${v.priceCents != null ? (v.priceCents / 100).toFixed(2) : ''}" />
+      <input data-vs="${i}" type="number" min="0" step="1" value="${v.stockTotal ?? 0}" />
+      <select data-vi="${i}">
+        <option value="">— none —</option>
+        ${pool.map((im) => `
+          <option value="${esc(im)}" ${v.image === im ? 'selected' : ''}>${esc(im)}</option>`).join('')}
+      </select>
+    </div>`).join('');
+
+  rows.querySelectorAll('[data-vp]').forEach((el) => el.addEventListener('input', () => {
+    const v = current().variants[Number(el.dataset.vp)];
+    v.priceCents = el.value === '' ? null : Math.round(parseFloat(el.value) * 100);
+    setDirty(true); validate();
+  }));
+  rows.querySelectorAll('[data-vs]').forEach((el) => el.addEventListener('input', () => {
+    const v = current().variants[Number(el.dataset.vs)];
+    v.stockTotal = el.value === '' ? 0 : parseInt(el.value, 10);
+    setDirty(true); validate();
+  }));
+  rows.querySelectorAll('[data-vi]').forEach((el) => el.addEventListener('change', () => {
+    const v = current().variants[Number(el.dataset.vi)];
+    if (el.value) v.image = el.value; else delete v.image;
+    setDirty(true); validate();
+  }));
+}
+
+// --------------------------------------------------------------- captured
+function renderCaptured() {
+  $('capCount').textContent = captured.length ? `(${captured.length})` : '';
+  const box = $('captured');
+  if (!captured.length) {
+    box.innerHTML = `<p class="small muted">Nothing captured yet. Use the browser
+      extension on a supplier product page.</p>`;
+    return;
+  }
+
+  box.innerHTML = captured.map((c, i) => `
+    <div class="list-item" style="display:block">
+      <div style="font-weight:600">${esc(c.title)}</div>
+      <div class="small muted">
+        ${c.priceCents != null ? 'MVR ' + (c.priceCents / 100).toFixed(2) : 'no price'} ·
+        ${c.images.length} image(s) ·
+        ${(c.options ?? []).length} option(s)
+      </div>
+      <div class="thumbs" style="margin-top:6px">
+        ${c.images.slice(0, 6).map((im) => `
+          <div class="thumb" style="width:44px;height:44px">
+            <img src="/images/${encodeURIComponent(im.name)}" alt="" />
+          </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button data-cap-add="${i}" class="primary small" style="flex:1">Add to catalog</button>
+        <button data-cap-del="${i}" class="danger small">Discard</button>
+      </div>
+    </div>`).join('');
+
+  box.querySelectorAll('[data-cap-add]').forEach((btn) => {
+    btn.addEventListener('click', () => adoptCapture(Number(btn.dataset.capAdd)));
+  });
+  box.querySelectorAll('[data-cap-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Discard this capture? The images stay on disk.')) return;
+      await fetch(`/api/captured?index=${btn.dataset.capDel}`, { method: 'DELETE' });
+      captured.splice(Number(btn.dataset.capDel), 1);
+      renderCaptured();
+    });
+  });
+}
+
+/**
+ * Turn a capture into a catalog product.
+ *
+ * Options become real variants: the full cross-product of option values, so
+ * every combination exists and can be priced, stocked and given an image.
+ * The extension records which option value each swatch belonged to, so those
+ * images are pre-assigned.
+ */
+function adoptCapture(i) {
+  const c = captured[i];
+  const slug = c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20);
+  const sku = `CP-${Date.now().toString().slice(-6)}`;
+
+  const product = {
+    sku,
+    title: c.title,
+    storeSlug: stores[0]?.slug ?? '',
+    categories: [],
+    images: c.images.map((im) => im.name),
+    description: '',
+    sourceUrl: c.sourceUrl ?? undefined,
+    specs: c.specs && Object.keys(c.specs).length ? c.specs : undefined,
+  };
+
+  const opts = (c.options ?? []).filter((o) => o.values?.length);
+  if (opts.length) {
+    product.options = opts.map((o) => ({ name: o.name, values: o.values }));
+
+    // Cross-product of every option's values.
+    let combos = [{}];
+    for (const o of opts) {
+      combos = combos.flatMap((base) => o.values.map((v) => ({ ...base, [o.name]: v })));
+    }
+
+    product.variants = combos.map((choices, n) => {
+      // An image whose recorded swatch value matches one of these choices.
+      const match = c.images.find((im) =>
+        im.variantValue && Object.values(choices).some(
+          (v) => String(v).toLowerCase() === String(im.variantValue).toLowerCase()));
+      return {
+        sku: `${sku}-${String(n + 1).padStart(2, '0')}`,
+        choices,
+        priceCents: c.priceCents ?? 0,
+        stockTotal: 0,
+        ...(match ? { image: match.name } : {}),
+      };
+    });
+  } else {
+    product.priceCents = c.priceCents ?? 0;
+    product.stockTotal = 0;
+  }
+
+  doc.products.push(product);
+  setDirty(true);
+
+  fetch(`/api/captured?index=${i}`, { method: 'DELETE' });
+  captured.splice(i, 1);
+  renderCaptured();
+
+  select(doc.products.length - 1);
+  document.querySelector('.tab[data-tab="products"]').click();
+
+  const mapped = (product.variants ?? []).filter((v) => v.image).length;
+  banner('ok', `Added with ${product.variants?.length ?? 0} variant(s).` +
+    (mapped ? ` ${mapped} already have an image.` : '') +
+    ' Set prices and stock, then save.', 9000);
+}
+
 // ----------------------------------------------------------------- drafts
 document.querySelectorAll('.tab').forEach((t) => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('sel', x === t));
     $('tab-products').classList.toggle('hide', t.dataset.tab !== 'products');
     $('tab-drafts').classList.toggle('hide', t.dataset.tab !== 'drafts');
+    $('tab-captured').classList.toggle('hide', t.dataset.tab !== 'captured');
   });
 });
 

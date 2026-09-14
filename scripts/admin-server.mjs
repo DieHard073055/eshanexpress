@@ -50,13 +50,71 @@ function safeName(name) {
 }
 
 const server = createServer(async (req, res) => {
-  // Same-origin only; this server has write access to the repo.
-  res.setHeader('access-control-allow-origin', 'http://127.0.0.1:' + PORT);
-
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
 
+  // The capture endpoint is the only one the browser extension may call, so
+  // it is the only one that accepts a chrome-extension:// origin. Everything
+  // else stays same-origin, because this server can write to the repo.
+  const origin = req.headers.origin ?? '';
+  const fromExtension = origin.startsWith('chrome-extension://')
+    || origin.startsWith('moz-extension://');
+
+  if (path === '/api/capture' && fromExtension) {
+    res.setHeader('access-control-allow-origin', origin);
+    res.setHeader('access-control-allow-headers', 'content-type');
+    res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
+  } else {
+    res.setHeader('access-control-allow-origin', 'http://127.0.0.1:' + PORT);
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
+
   try {
+    // ------------------------------------------------------------ capture
+    // Receives one product scraped from a page the user had open, with its
+    // images already fetched by the extension. Saves images to disk and
+    // stages the product for review in the editor — never publishes.
+    if (path === '/api/capture' && req.method === 'POST') {
+      const payload = JSON.parse((await readBody(req, 64 * 1024 * 1024)).toString('utf8'));
+      const { product, images } = payload ?? {};
+
+      if (!product?.title) return json(res, 400, { error: 'Capture needs a product title' });
+      if (!Array.isArray(images)) return json(res, 400, { error: 'Capture needs an images array' });
+
+      await mkdir(IMAGES, { recursive: true });
+      const saved = [];
+
+      for (const img of images) {
+        const name = safeName(img?.name ?? '');
+        if (!name || !/\.(jpe?g|png|webp)$/i.test(name)) continue;
+        if (typeof img.dataUrl !== 'string') continue;
+
+        const comma = img.dataUrl.indexOf(',');
+        if (comma < 0) continue;
+        const bytes = Buffer.from(img.dataUrl.slice(comma + 1), 'base64');
+        if (!bytes.length || bytes.length > 8 * 1024 * 1024) continue;
+
+        await writeFile(join(IMAGES, name), bytes);
+        saved.push({ name, bytes: bytes.length, sourceUrl: img.sourceUrl ?? null });
+      }
+
+      // Staged separately so a capture can never overwrite the live catalog.
+      const stagePath = join(DATA, 'captured.json');
+      const stage = existsSync(stagePath)
+        ? JSON.parse(await readFile(stagePath, 'utf8'))
+        : { captured: [] };
+      stage.captured.push({ ...product, images: saved, capturedAt: new Date().toISOString() });
+      await writeFile(stagePath, JSON.stringify(stage, null, 2) + '\n');
+
+      return json(res, 200, {
+        ok: true, savedImages: saved.length, staged: stage.captured.length,
+      });
+    }
+
     // ---------------------------------------------------------------- API
     if (path === '/api/data' && req.method === 'GET') {
       const products = JSON.parse(await readFile(join(DATA, 'products.json'), 'utf8'));
@@ -64,7 +122,11 @@ const server = createServer(async (req, res) => {
       const images = existsSync(IMAGES)
         ? (await readdir(IMAGES)).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f)).sort()
         : [];
-      return json(res, 200, { products, stores, images });
+      const capturedPath = join(DATA, 'captured.json');
+      const captured = existsSync(capturedPath)
+        ? JSON.parse(await readFile(capturedPath, 'utf8')).captured ?? []
+        : [];
+      return json(res, 200, { products, stores, images, captured });
     }
 
     if (path === '/api/products' && req.method === 'PUT') {
@@ -100,6 +162,18 @@ const server = createServer(async (req, res) => {
       await mkdir(IMAGES, { recursive: true });
       await writeFile(join(IMAGES, name), buf);
       return json(res, 200, { ok: true, name, bytes: buf.length });
+    }
+
+    if (path === '/api/captured' && req.method === 'DELETE') {
+      const at = Number(url.searchParams.get('index'));
+      const capturedPath = join(DATA, 'captured.json');
+      if (!existsSync(capturedPath)) return json(res, 200, { ok: true });
+      const stage = JSON.parse(await readFile(capturedPath, 'utf8'));
+      if (Number.isInteger(at) && at >= 0 && at < (stage.captured?.length ?? 0)) {
+        stage.captured.splice(at, 1);
+        await writeFile(capturedPath, JSON.stringify(stage, null, 2) + '\n');
+      }
+      return json(res, 200, { ok: true, remaining: stage.captured?.length ?? 0 });
     }
 
     if (path === '/api/image' && req.method === 'DELETE') {

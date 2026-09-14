@@ -8,6 +8,9 @@ docs/samples/statement-sample.csv
 .env.*
 !.env.example
 
+# Staged extension captures (local review queue)
+data/captured.json
+
 # Editor rollback copy
 data/products.json.bak
 

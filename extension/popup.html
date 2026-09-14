@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { --line:#e5e5e3; --muted:#6b6b68; --brand:#ea580c; --bad:#b91c1c; --ok:#15803d; }
+  body { width:380px; margin:0; padding:14px;
+         font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#1c1c1b; }
+  h1 { font-size:14px; margin:0 0 2px; }
+  h1 span { color:var(--brand); }
+  .muted { color:var(--muted); font-size:12px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:7px;
+           padding:7px 12px; cursor:pointer; }
+  button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  input, select { font:inherit; width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
+  label { font-size:11px; font-weight:600; color:var(--muted); display:block; margin:8px 0 3px; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:10px; }
+  .imgs { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:6px;
+          max-height:190px; overflow:auto; }
+  .thumb { position:relative; aspect-ratio:1; border:2px solid transparent; border-radius:5px;
+           overflow:hidden; cursor:pointer; background:#f5f5f4; }
+  .thumb.on { border-color:var(--brand); }
+  .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb .tick { position:absolute; top:1px; right:2px; font-size:10px; color:var(--brand); font-weight:700; }
+  .note { padding:7px 9px; border-radius:6px; font-size:12px; margin-top:9px; }
+  .note.bad { background:#fef2f2; color:var(--bad); }
+  .note.ok  { background:#f0fdf4; color:var(--ok); }
+  .note.warn{ background:#fffbeb; color:#b45309; }
+  .hide { display:none !important; }
+  .pill { font-size:11px; border:1px solid var(--line); border-radius:99px; padding:1px 7px; }
+</style>
+</head>
+<body>
+  <h1>Eshan<span>Express</span> capture</h1>
+  <p class="muted" id="src">Reading this page…</p>
+
+  <div id="err" class="note bad hide"></div>
+
+  <div id="found" class="hide">
+    <div class="box">
+      <label for="title">Title <span class="muted">(edit before saving)</span></label>
+      <input id="title" />
+
+      <label for="price">Price (MVR)</label>
+      <input id="price" type="number" step="0.01" />
+      <p class="muted" id="pricenote"></p>
+
+      <div id="opts"></div>
+    </div>
+
+    <div class="box">
+      <div class="row">
+        <strong style="font-size:12px">Images</strong>
+        <span class="pill" id="imgcount">0</span>
+        <span style="flex:1"></span>
+        <button id="all" style="padding:3px 8px;font-size:11px">All</button>
+        <button id="none" style="padding:3px 8px;font-size:11px">None</button>
+      </div>
+      <div id="imgs" class="imgs"></div>
+      <p class="muted" style="margin:6px 0 0" id="swatchnote"></p>
+    </div>
+
+    <div id="status" class="note warn hide"></div>
+
+    <div class="row" style="margin-top:11px">
+      <button id="save" class="primary" style="flex:1">Save to catalog</button>
+    </div>
+    <p class="muted" style="margin:7px 0 0">
+      Saves to your local editor for review. Nothing is published.
+    </p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
