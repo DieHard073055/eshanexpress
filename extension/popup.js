@@ -10,7 +10,51 @@ const ADMIN = 'http://127.0.0.1:4321';
 const $ = (id) => document.getElementById(id);
 
 let data = null;
+let pricing = null;
 const selected = new Set();
+
+/**
+ * Does the currency on the page match the one we are configured to convert
+ * from? Converting an Rf price with an SGD rate silently inflates it ~12x,
+ * so this must be checked, not assumed.
+ */
+const CURRENCY_ALIASES = {
+  SGD: ['SGD', 'S$'],
+  MVR: ['MVR', 'Rf', 'Rf.', 'ރ'],
+  USD: ['USD', 'US $', 'US$', '$'],
+  AUD: ['AUD', 'A$'],
+  GBP: ['GBP', '£'],
+  EUR: ['EUR', '€'],
+  INR: ['INR', '₹'],
+};
+
+function currencyMatches(pageSymbol, expectedCode) {
+  if (!pageSymbol || !expectedCode) return null;   // unknown, do not claim
+  const aliases = CURRENCY_ALIASES[expectedCode] ?? [expectedCode];
+  const seen = pageSymbol.replace(/\s+/g, '');
+  return aliases.some((a) => a.replace(/\s+/g, '').toLowerCase() === seen.toLowerCase());
+}
+
+/** Which currency does this page symbol most likely mean? */
+function nameCurrency(symbol) {
+  if (!symbol) return null;
+  const seen = symbol.replace(/\s+/g, '').toLowerCase();
+  for (const [code, aliases] of Object.entries(CURRENCY_ALIASES)) {
+    if (aliases.some((a) => a.replace(/\s+/g, '').toLowerCase() === seen)) return code;
+  }
+  return null;
+}
+
+/** Mirrors src/lib/pricing.js — the extension cannot import from the repo. */
+function toMvrCents(sourceAmount, cfg) {
+  const amount = Number(sourceAmount);
+  if (!Number.isFinite(amount) || amount < 0 || !cfg) return null;
+  const withFlat = amount * cfg.rate * (1 + (cfg.feePercent ?? 0) / 100) + (cfg.flatFeeMvr ?? 0);
+  let final = withFlat;
+  if (cfg.rounding === 'up') final = Math.ceil(withFlat / cfg.roundToMvr) * cfg.roundToMvr;
+  else if (cfg.rounding === 'nearest') final = Math.round(withFlat / cfg.roundToMvr) * cfg.roundToMvr;
+  return Math.round(final * 100);
+}
 
 const fail = (msg) => {
   $('err').textContent = msg;
@@ -49,6 +93,15 @@ const status = (msg, kind = 'warn') => {
   }
 
   data = result;
+
+  // Pricing config is optional: without the editor running you can still
+  // capture, you just enter the MVR price yourself.
+  try {
+    const r = await fetch(`${ADMIN}/api/pricing`);
+    const cfg = await r.json();
+    if (cfg.configured) pricing = cfg;
+  } catch { /* editor not running */ }
+
   render();
 })();
 
@@ -58,10 +111,45 @@ function render() {
   $('found').classList.remove('hide');
 
   $('title').value = data.title;
-  $('price').value = data.priceNumber ?? '';
-  $('pricenote').textContent = data.priceText
-    ? `Page showed: ${data.priceText}`
-    : 'No price found — enter it yourself.';
+
+  // The page price is in the sourcing currency; the store sells in MVR.
+  // Only convert when the page is ACTUALLY showing that currency.
+  const match = pricing
+    ? currencyMatches(data.priceCurrency, pricing.sourceCurrency) : null;
+
+  const shouldConvert = pricing && data.priceNumber != null && match === true;
+  const converted = shouldConvert ? toMvrCents(data.priceNumber, pricing) : null;
+
+  $('price').value = converted != null
+    ? (converted / 100).toFixed(2)
+    : (data.priceNumber ?? '');
+
+  if (converted != null) {
+    $('pricenote').textContent =
+      `${pricing.sourceCurrency} ${data.priceNumber.toFixed(2)} × ${pricing.rate}`
+      + (pricing.feePercent ? ` +${pricing.feePercent}%` : '')
+      + (pricing.flatFeeMvr ? ` +MVR ${pricing.flatFeeMvr}` : '')
+      + ` = MVR ${(converted / 100).toFixed(2)}`;
+    $('pricenote').className = 'muted';
+  } else if (pricing && data.priceNumber != null && match === false) {
+    // The common, costly mistake: browsing in the wrong currency.
+    const seen = nameCurrency(data.priceCurrency) ?? data.priceCurrency;
+    $('currwarn').innerHTML =
+      `<strong>This page is showing ${escapeHtml(seen)}, not ${escapeHtml(pricing.sourceCurrency)}.</strong><br>`
+      + `Switch the site to ${escapeHtml(pricing.sourceCurrency)} and reopen this popup, `
+      + `or type the MVR price yourself. Not converting.`;
+    $('currwarn').classList.remove('hide');
+    $('pricenote').textContent = `Page showed ${data.priceText} — left unconverted.`;
+  } else if (pricing && data.priceNumber != null && match === null) {
+    $('pricenote').textContent =
+      `Could not tell the currency from "${data.priceText}". Check the price before saving.`;
+  } else if (data.priceText) {
+    $('pricenote').textContent = pricing
+      ? `Page showed ${data.priceText} — could not read a number, enter MVR yourself.`
+      : `Page showed ${data.priceText}. Editor not running, so no conversion applied.`;
+  } else {
+    $('pricenote').textContent = 'No price found — enter the MVR price yourself.';
+  }
 
   // Options, read-only: they are the supplier's, and editing them here would
   // desync from the variants the editor builds.

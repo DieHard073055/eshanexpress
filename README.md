@@ -78,6 +78,35 @@ own price and stock. Add `options` and `variants` instead of a flat
 Each variant is its own SKU to the database, so stock reservation, checkout
 and the workbench needed no changes. The parent SKU is never orderable.
 
+### Sourcing prices (SGD → MVR)
+
+You browse suppliers in SGD; the store sells in MVR. `data/pricing.json` holds
+the conversion:
+
+```jsonc
+{ "rate": 11.85, "feePercent": 15, "flatFeeMvr": 25,
+  "rounding": "up", "roundToMvr": 5 }
+```
+
+The formula, applied in this order:
+
+```
+MVR = SGD × rate × (1 + feePercent/100) + flatFeeMvr   → rounded
+```
+
+The flat fee is added **after** the percentage, so it is not marked up. Update
+`rate` and `rateUpdated` when your exchange moves — anything older than a week
+triggers a warning.
+
+Both the importer (`--convert`) and the browser extension use this, and a test
+asserts the extension's copy of the formula has not drifted from
+`src/lib/pricing.js`.
+
+**Currency guard.** Supplier sites show prices in whatever currency the site
+is set to. If the page is showing Rf or USD while your config says SGD, the
+extension refuses to convert and tells you to switch the site to SGD — a
+silent conversion there would price everything ~12x wrong.
+
 ### Stock authority
 
 The database owns inventory at checkout. `scripts/sync-stock.mjs` pushes

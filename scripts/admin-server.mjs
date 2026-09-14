@@ -60,7 +60,7 @@ const server = createServer(async (req, res) => {
   const fromExtension = origin.startsWith('chrome-extension://')
     || origin.startsWith('moz-extension://');
 
-  if (path === '/api/capture' && fromExtension) {
+  if ((path === '/api/capture' || path === '/api/pricing') && fromExtension) {
     res.setHeader('access-control-allow-origin', origin);
     res.setHeader('access-control-allow-headers', 'content-type');
     res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
@@ -113,6 +113,13 @@ const server = createServer(async (req, res) => {
       return json(res, 200, {
         ok: true, savedImages: saved.length, staged: stage.captured.length,
       });
+    }
+
+    // Pricing config, so the extension can convert as you browse.
+    if (path === '/api/pricing' && req.method === 'GET') {
+      const cfgPath = join(DATA, 'pricing.json');
+      if (!existsSync(cfgPath)) return json(res, 200, { configured: false });
+      return json(res, 200, { configured: true, ...JSON.parse(await readFile(cfgPath, 'utf8')) });
     }
 
     // ---------------------------------------------------------------- API

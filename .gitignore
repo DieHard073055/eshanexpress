@@ -3,6 +3,12 @@ docs/samples/statement-sample.csv
 *statement*.csv
 *.ofx
 
+# Saved supplier pages used to test the extractor. Large, contain the
+# supplier's content and a browser session token from your visit, and are not
+# ours to republish. Keep them locally; tests skip when absent.
+docs/samples/*.html
+docs/samples/*_files/
+
 # Secrets
 .env
 .env.*
