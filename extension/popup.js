@@ -400,6 +400,11 @@ async function doSave(title) {
       none ? 'bad' : skipped ? 'warn' : 'ok');
     $('save').textContent = 'Saved';
   } catch (e) {
-    status(`Could not reach the editor. Is "npm run admin" running? (${e.message})`, 'bad');
+    // The product itself may already be staged even when the request fails
+    // partway, so say what is and is not lost.
+    status(
+      `Could not reach the editor at ${ADMIN}. Start it with "npm run admin" `
+      + 'in the eshanexpress folder, then click Save again — nothing was lost. '
+      + `(${e.message})`, 'bad');
   }
 }

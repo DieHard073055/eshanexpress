@@ -260,6 +260,19 @@ const server = createServer(async (req, res) => {
   }
 });
 
+// A port clash otherwise kills the process with a bare stack trace, and the
+// extension just reports "Failed to fetch" with no clue why.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n  Port ${PORT} is already in use.`);
+    console.error('  Another copy of this server may be running:');
+    console.error(`    lsof -ti:${PORT} | xargs kill\n`);
+  } else {
+    console.error(`\n  Could not start: ${err.message}\n`);
+  }
+  process.exit(1);
+});
+
 // Loopback only. This process can write to the repo, so it must never be
 // reachable from the network.
 server.listen(PORT, '127.0.0.1', () => {
