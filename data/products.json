@@ -3,106 +3,6 @@
   "currency": "MVR",
   "products": [
     {
-      "sku": "EX-1001",
-      "title": "Wireless Earbuds Pro",
-      "storeSlug": "eshan-electronics",
-      "priceCents": 34900,
-      "compareAtCents": 49900,
-      "stockTotal": 24,
-      "categories": [
-        "electronics",
-        "audio"
-      ],
-      "images": [
-        "earbuds-1.jpg",
-        "earbuds-2.jpg"
-      ],
-      "description": "True wireless earbuds with active noise cancellation and a 30-hour charging case. Bluetooth 5.3, IPX4 splash resistant.",
-      "specs": {
-        "Battery": "6h + 24h case",
-        "Bluetooth": "5.3",
-        "Water resistance": "IPX4"
-      }
-    },
-    {
-      "sku": "EX-1002",
-      "title": "USB-C Fast Charger 65W",
-      "storeSlug": "eshan-electronics",
-      "priceCents": 18900,
-      "stockTotal": 40,
-      "categories": [
-        "electronics",
-        "accessories"
-      ],
-      "images": [
-        "charger-1.jpg"
-      ],
-      "description": "Compact GaN charger with two USB-C ports and one USB-A. Charges a laptop and phone simultaneously.",
-      "specs": {
-        "Output": "65W total",
-        "Ports": "2x USB-C, 1x USB-A"
-      }
-    },
-    {
-      "sku": "EX-2001",
-      "title": "Cotton Kurta — Navy",
-      "storeSlug": "island-textiles",
-      "priceCents": 24500,
-      "stockTotal": 12,
-      "categories": [
-        "clothing"
-      ],
-      "images": [
-        "kurta-navy-1.jpg"
-      ],
-      "description": "Breathable cotton kurta suited to warm weather. Machine washable.",
-      "specs": {
-        "Material": "100% cotton",
-        "Sizes": "S–XXL"
-      }
-    },
-    {
-      "sku": "EX-2002",
-      "title": "Stainless Steel Water Bottle 1L",
-      "storeSlug": "island-textiles",
-      "priceCents": 12000,
-      "compareAtCents": 15000,
-      "stockTotal": 0,
-      "categories": [
-        "home"
-      ],
-      "images": [
-        "bottle-1.jpg"
-      ],
-      "description": "Double-walled vacuum insulated bottle. Keeps drinks cold for 24 hours, hot for 12.",
-      "specs": {
-        "Capacity": "1000ml",
-        "Material": "304 stainless steel"
-      }
-    },
-    {
-      "sku": "EX-4001",
-      "title": "Robot Vacuum with Lidar Mapping",
-      "storeSlug": "eshan-electronics",
-      "priceCents": 489000,
-      "stockTotal": 15,
-      "leadTimeDays": 35,
-      "maxPerOrder": 2,
-      "categories": [
-        "home",
-        "electronics"
-      ],
-      "images": [
-        "vacuum-1.jpg"
-      ],
-      "description": "Lidar-guided robot vacuum with room mapping and a self-emptying base.",
-      "specs": {
-        "Suction": "4000Pa",
-        "Battery": "5200mAh",
-        "Mapping": "Lidar"
-      }
-    },
-    {
       "sku": "CP-947933",
       "title": "1MORE SonoFLow SE HQ31 Over-Ear Headphones Wireless Earphones Bluetooth 5.4 Hi-Res LDAC -42dB Noise Cancellation 90H Playtime",
       "storeSlug": "eshan-electronics",
@@ -349,6 +249,263 @@
           "priceCents": 19000,
           "stockTotal": 10,
           "image": "kz-edx-pro-x-sport-hifi-earphone-14.webp"
+        }
+      ]
+    },
+    {
+      "sku": "CP-464500",
+      "title": "EDIFIER 2026 New W800NB Active Noise Cancelling Bluetooth Headphones Wireless Hi-Fi Headset Long Battery Life Gaming Music for P",
+      "storeSlug": "eshan-electronics",
+      "categories": [],
+      "images": [
+        "edifier-2026-new-w800nb-active-n-1.webp",
+        "edifier-2026-new-w800nb-active-n-2.webp",
+        "edifier-2026-new-w800nb-active-n-3.webp",
+        "edifier-2026-new-w800nb-active-n-4.webp",
+        "edifier-2026-new-w800nb-active-n-5.webp",
+        "edifier-2026-new-w800nb-active-n-6.webp",
+        "edifier-2026-new-w800nb-active-n-7.webp",
+        "edifier-2026-new-w800nb-active-n-8.webp",
+        "edifier-2026-new-w800nb-active-n-9.webp",
+        "edifier-2026-new-w800nb-active-n-10.webp",
+        "edifier-2026-new-w800nb-active-n-11.webp"
+      ],
+      "description": "",
+      "sourceUrl": "https://www.aliexpress.com/item/1005013105292624.html",
+      "specs": {
+        "Audio latency--": "Audio latency",
+        "DepartmentUnisex-adult": "Department",
+        "MaterialMetal,PC": "Material"
+      },
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            "pink",
+            "white",
+            "black",
+            "blue"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "sku": "CP-464500-01",
+          "choices": {
+            "Color": "pink"
+          },
+          "priceCents": 194000,
+          "stockTotal": 10,
+          "image": "edifier-2026-new-w800nb-active-n-1.webp"
+        },
+        {
+          "sku": "CP-464500-02",
+          "choices": {
+            "Color": "white"
+          },
+          "priceCents": 194000,
+          "stockTotal": 10,
+          "image": "edifier-2026-new-w800nb-active-n-2.webp"
+        },
+        {
+          "sku": "CP-464500-03",
+          "choices": {
+            "Color": "black"
+          },
+          "priceCents": 194000,
+          "stockTotal": 10,
+          "image": "edifier-2026-new-w800nb-active-n-3.webp"
+        },
+        {
+          "sku": "CP-464500-04",
+          "choices": {
+            "Color": "blue"
+          },
+          "priceCents": 194000,
+          "stockTotal": 10,
+          "image": "edifier-2026-new-w800nb-active-n-4.webp"
+        }
+      ]
+    },
+    {
+      "sku": "CP-467184",
+      "title": "Vention ECHO LITE E11 Bluetooth Earphones Bluetooth 5.4 HiFi TWS True Wireless In Ear Headphones Stereo Sports Earbuds With Mic",
+      "storeSlug": "eshan-electronics",
+      "categories": [],
+      "images": [
+        "vention-echo-lite-e11-bluetooth--1.webp",
+        "vention-echo-lite-e11-bluetooth--2.webp",
+        "vention-echo-lite-e11-bluetooth--3.webp",
+        "vention-echo-lite-e11-bluetooth--4.webp",
+        "vention-echo-lite-e11-bluetooth--5.webp",
+        "vention-echo-lite-e11-bluetooth--6.webp",
+        "vention-echo-lite-e11-bluetooth--7.webp",
+        "vention-echo-lite-e11-bluetooth--8.webp",
+        "vention-echo-lite-e11-bluetooth--9.webp"
+      ],
+      "description": "",
+      "sourceUrl": "https://www.aliexpress.com/item/1005008830936954.html",
+      "specs": {
+        "Battery life up to[hours]30": "Battery life up to[hours]",
+        "DepartmentUnisex-adult": "Department",
+        "MaterialABS": "Material"
+      },
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            "White",
+            "Black"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "sku": "CP-467184-01",
+          "choices": {
+            "Color": "White"
+          },
+          "priceCents": 28000,
+          "stockTotal": 10,
+          "image": "vention-echo-lite-e11-bluetooth--1.webp"
+        },
+        {
+          "sku": "CP-467184-02",
+          "choices": {
+            "Color": "Black"
+          },
+          "priceCents": 28000,
+          "stockTotal": 10,
+          "image": "vention-echo-lite-e11-bluetooth--2.webp"
+        }
+      ]
+    },
+    {
+      "sku": "CP-667283",
+      "title": "2026 New 32G Memory 800W 4K Camera Smart Glasses Men Photos&Videos 3600mAh Power Bank 120+Languages Translation AI Glasses Women",
+      "storeSlug": "eshan-electronics",
+      "categories": [],
+      "images": [
+        "2026-new-32g-memory-800w-4k-came-1.webp",
+        "2026-new-32g-memory-800w-4k-came-2.webp",
+        "2026-new-32g-memory-800w-4k-came-3.webp",
+        "2026-new-32g-memory-800w-4k-came-4.webp",
+        "2026-new-32g-memory-800w-4k-came-5.webp",
+        "2026-new-32g-memory-800w-4k-came-6.webp",
+        "2026-new-32g-memory-800w-4k-came-7.webp",
+        "2026-new-32g-memory-800w-4k-came-8.webp",
+        "2026-new-32g-memory-800w-4k-came-9.webp",
+        "2026-new-32g-memory-800w-4k-came-10.webp",
+        "2026-new-32g-memory-800w-4k-came-11.webp",
+        "2026-new-32g-memory-800w-4k-came-12.webp",
+        "2026-new-32g-memory-800w-4k-came-13.webp",
+        "2026-new-32g-memory-800w-4k-came-14.webp",
+        "2026-new-32g-memory-800w-4k-came-15.webp"
+      ],
+      "description": "",
+      "sourceUrl": "https://www.aliexpress.com/item/1005011634794671.html",
+      "specs": {
+        "Gesture Recognitionno": "Gesture Recognition",
+        "Lenses DegreeNo": "Lenses Degree",
+        "OISno": "OIS"
+      },
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            "Lens A",
+            "Black Color change A",
+            "Black Color change B",
+            "Black Sunglasses A",
+            "Black Blue Light A",
+            "Black Sunglasses B",
+            "Black Blue Light B",
+            "Lens B",
+            "Lens C"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "sku": "CP-667283-01",
+          "choices": {
+            "Color": "Lens A"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-1.webp"
+        },
+        {
+          "sku": "CP-667283-02",
+          "choices": {
+            "Color": "Black Color change A"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-2.webp"
+        },
+        {
+          "sku": "CP-667283-03",
+          "choices": {
+            "Color": "Black Color change B"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-3.webp"
+        },
+        {
+          "sku": "CP-667283-04",
+          "choices": {
+            "Color": "Black Sunglasses A"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-4.webp"
+        },
+        {
+          "sku": "CP-667283-05",
+          "choices": {
+            "Color": "Black Blue Light A"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-5.webp"
+        },
+        {
+          "sku": "CP-667283-06",
+          "choices": {
+            "Color": "Black Sunglasses B"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-6.webp"
+        },
+        {
+          "sku": "CP-667283-07",
+          "choices": {
+            "Color": "Black Blue Light B"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-7.webp"
+        },
+        {
+          "sku": "CP-667283-08",
+          "choices": {
+            "Color": "Lens B"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-8.webp"
+        },
+        {
+          "sku": "CP-667283-09",
+          "choices": {
+            "Color": "Lens C"
+          },
+          "priceCents": 220500,
+          "stockTotal": 3,
+          "image": "2026-new-32g-memory-800w-4k-came-9.webp"
         }
       ]
     }
