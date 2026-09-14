@@ -312,7 +312,12 @@ async function doSave(title) {
   for (const [n, im] of chosen.entries()) {
     status(`Fetching image ${n + 1} of ${chosen.length}…`);
     try {
-      const res = await fetch(im.src);
+      // These CDNs content-negotiate on Accept: Chrome's default asks for
+      // AVIF and gets it, which the image pipeline cannot read directly.
+      // Ask for WebP/JPEG so the bytes arrive in a format that just works.
+      const res = await fetch(im.src, {
+        headers: { Accept: 'image/webp,image/jpeg,image/png;q=0.9,*/*;q=0.8' },
+      });
       console.log(`[EshanExpress] #${n + 1} ${res.status} ${res.headers.get('content-type')} ${im.src}`);
       if (!res.ok) { failures.push(`${res.status} on ${new URL(im.src).host}`); continue; }
       const blob = await res.blob();
@@ -320,7 +325,11 @@ async function doSave(title) {
       if (blob.size > 8 * 1024 * 1024) { failures.push('too large'); continue; }
       if (blob.size === 0) { failures.push('empty response'); continue; }
 
-      const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      // Name from the RESPONSE type, since the URL extension lies: a .jpg
+      // URL can return webp or avif depending on what was negotiated.
+      const ext = (blob.type.split('/')[1] || 'jpg')
+        .replace('jpeg', 'jpg')
+        .replace(/[^a-z0-9]/gi, '');
       const dataUrl = await new Promise((resolve) => {
         const r = new FileReader();
         r.onload = () => resolve(r.result);

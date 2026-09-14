@@ -95,8 +95,11 @@ const server = createServer(async (req, res) => {
         const raw = img?.name ?? '';
         const name = safeName(raw);
         if (!name) { rejected.push(`${raw}: unsafe filename`); continue; }
-        if (!/\.(jpe?g|png|webp)$/i.test(name)) {
-          rejected.push(`${name}: not a jpg/png/webp`); continue;
+        // AliExpress and Temu serve AVIF to browsers that accept it. sharp
+        // reads it (as heif) and the catalog build re-encodes anyway, so
+        // convert on arrival rather than rejecting a perfectly good image.
+        if (!/\.(jpe?g|png|webp|avif)$/i.test(name)) {
+          rejected.push(`${name}: not a jpg/png/webp/avif`); continue;
         }
         if (typeof img.dataUrl !== 'string') {
           rejected.push(`${name}: dataUrl missing or not a string`); continue;
@@ -111,8 +114,22 @@ const server = createServer(async (req, res) => {
           rejected.push(`${name}: ${(bytes.length / 1048576).toFixed(1)}MB exceeds 8MB`); continue;
         }
 
-        await writeFile(join(IMAGES, name), bytes);
-        saved.push({ name, bytes: bytes.length, sourceUrl: img.sourceUrl ?? null });
+        let outName = name;
+        let outBytes = bytes;
+
+        if (/\.avif$/i.test(name)) {
+          try {
+            const sharp = (await import('sharp')).default;
+            outBytes = await sharp(bytes).webp({ quality: 82 }).toBuffer();
+            outName = name.replace(/\.avif$/i, '.webp');
+          } catch (e) {
+            rejected.push(`${name}: could not convert AVIF (${e.message.slice(0, 60)})`);
+            continue;
+          }
+        }
+
+        await writeFile(join(IMAGES, outName), outBytes);
+        saved.push({ name: outName, bytes: outBytes.length, sourceUrl: img.sourceUrl ?? null });
       }
 
       if (rejected.length) {
