@@ -828,48 +828,113 @@ document.querySelectorAll('.tab').forEach((t) => {
   });
 });
 
-$('loadDrafts').addEventListener('click', async () => {
-  const url = localStorage.getItem('wb.url');
-  const key = localStorage.getItem('wb.key');
-  if (!url || !key) {
-    return banner('warn', 'Open the payment workbench once to store your Supabase details, then come back.');
+/**
+ * Supabase session for the drafts tab.
+ *
+ * Config comes from the local server (which reads .env), not localStorage:
+ * the previous version expected keys the payment workbench sets, so the
+ * product editor never had them and loading always failed.
+ */
+let draftAuth = null;   // { url, key, token }
+
+async function ensureDraftAuth() {
+  if (draftAuth?.token) return draftAuth;
+
+  const cfg = await fetch('/api/supabase').then((r) => r.json()).catch(() => null);
+  if (!cfg?.configured) {
+    throw new Error('Supabase is not configured. Check .env has VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+  }
+
+  // Reuse a session from this browser rather than asking every time.
+  const saved = (() => {
+    try { return JSON.parse(localStorage.getItem('ed.session') ?? 'null'); } catch { return null; }
+  })();
+  if (saved?.token && saved.expires > Date.now()) {
+    draftAuth = { url: cfg.url, key: cfg.key, token: saved.token };
+    return draftAuth;
   }
 
   const email = prompt('Admin email:');
-  if (!email) return;
+  if (!email) throw new Error('Cancelled.');
   const password = prompt('Admin password:');
-  if (!password) return;
+  if (!password) throw new Error('Cancelled.');
 
-  const box = $('drafts');
-  box.innerHTML = '<p class="small muted">Loading…</p>';
-
-  const auth = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-    method: 'POST', headers: { apikey: key, 'content-type': 'application/json' },
+  const auth = await fetch(`${cfg.url}/auth/v1/token?grant_type=password`, {
+    method: 'POST', headers: { apikey: cfg.key, 'content-type': 'application/json' },
     body: JSON.stringify({ email, password }),
   }).then((r) => r.json());
 
-  if (!auth.access_token) { box.innerHTML = '<p class="small" style="color:var(--bad)">Sign-in failed.</p>'; return; }
+  if (!auth.access_token) {
+    throw new Error(auth.error_description ?? auth.msg ?? 'Sign-in failed.');
+  }
 
-  const drafts = await fetch(`${url}/rest/v1/product_drafts?select=*&status=eq.pending&order=created_at.desc`, {
-    headers: { apikey: key, authorization: `Bearer ${auth.access_token}` },
-  }).then((r) => r.json());
+  try {
+    localStorage.setItem('ed.session', JSON.stringify({
+      token: auth.access_token,
+      expires: Date.now() + (auth.expires_in ?? 3600) * 1000,
+    }));
+  } catch { /* private mode */ }
+
+  draftAuth = { url: cfg.url, key: cfg.key, token: auth.access_token };
+  return draftAuth;
+}
+
+$('loadDrafts').addEventListener('click', async () => {
+  const box = $('drafts');
+  box.innerHTML = '<p class="small muted">Loading…</p>';
+
+  let url; let key; let auth;
+  try {
+    const a = await ensureDraftAuth();
+    url = a.url; key = a.key; auth = { access_token: a.token };
+  } catch (e) {
+    box.innerHTML = `<p class="small" style="color:var(--bad)">${esc(e.message)}</p>`;
+    return;
+  }
+
+  const res = await fetch(
+    `${url}/rest/v1/product_drafts?select=*,stores(name)&status=eq.pending&order=created_at.desc`,
+    { headers: { apikey: key, authorization: `Bearer ${auth.access_token}` } });
+
+  if (!res.ok) {
+    const err = await res.text();
+    box.innerHTML = `<p class="small" style="color:var(--bad)">Could not load drafts (${res.status}). ${esc(err.slice(0, 120))}</p>`;
+    return;
+  }
+  const drafts = await res.json();
 
   $('draftCount').textContent = drafts.length ? `(${drafts.length})` : '';
 
   if (!drafts.length) { box.innerHTML = '<p class="small muted">No pending drafts.</p>'; return; }
 
-  box.innerHTML = drafts.map((d, i) => `
+  box.innerHTML = drafts.map((d, i) => {
+    const p = d.payload ?? {};
+    const cur = p.sourceCurrency ?? null;
+    const amt = p.sourceAmount ?? (p.priceCents != null ? p.priceCents / 100 : null);
+    const rate = cur && pricing?.rates?.[cur];
+    const mvr = (rate != null && amt != null) ? convertMvr(amt, rate) : null;
+    const imgs = Array.isArray(p.images) ? p.images : [];
+
+    return `
     <div class="list-item" style="display:block">
-      <div style="font-weight:600">${esc(d.payload?.title ?? 'Untitled')}</div>
+      <div style="font-weight:600">${esc(p.title ?? 'Untitled')}</div>
       <div class="small muted">
-        MVR ${((d.payload?.priceCents ?? 0) / 100).toFixed(2)} ·
-        ${d.payload?.stockTotal ?? 0} in stock
+        ${amt != null
+          ? `${esc(cur ?? '?')} ${amt.toFixed(2)}`
+            + (mvr != null ? ` → <strong>MVR ${(mvr / 100).toFixed(2)}</strong>` : '')
+          : 'no price'}
+        · ${imgs.length} image(s)
+        · ${esc(d.stores?.name ?? 'store')}
       </div>
+      ${(p.options ?? []).length
+        ? `<div class="small muted">${(p.options ?? []).map((o) =>
+            `${esc(o.name)}: ${o.values.length}`).join(' · ')}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button data-approve="${i}" class="primary small" style="flex:1">Add to catalog</button>
         <button data-reject="${i}" class="danger small">Reject</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   const setStatus = async (id, status, note) => fetch(`${url}/rest/v1/product_drafts?id=eq.${id}`, {
     method: 'PATCH',
@@ -880,21 +945,94 @@ $('loadDrafts').addEventListener('click', async () => {
   box.querySelectorAll('[data-approve]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const d = drafts[Number(btn.dataset.approve)];
+      const p = d.payload ?? {};
       const store = stores.find((s) => s.id === d.store_id) ?? stores[0];
-      doc.products.push({
-        sku: `EX-${Date.now().toString().slice(-5)}`,
-        title: d.payload?.title ?? '',
+
+      btn.disabled = true;
+      btn.textContent = 'Downloading images…';
+
+      // Images live in Storage. Pull them onto disk first: a product
+      // referencing files that are not there fails the build.
+      const localImages = [];
+      for (const im of (p.images ?? [])) {
+        try {
+          const sign = await fetch(
+            `${url}/storage/v1/object/sign/draft-images/${encodeURI(im.path)}`,
+            { method: 'POST',
+              headers: { apikey: key, authorization: `Bearer ${auth.access_token}`,
+                         'content-type': 'application/json' },
+              body: JSON.stringify({ expiresIn: 120 }) });
+          const { signedURL } = await sign.json();
+          if (!signedURL) continue;
+
+          const blob = await (await fetch(`${url}/storage/v1${signedURL}`)).blob();
+          const put = await fetch(`/api/image?name=${encodeURIComponent(im.name)}`,
+            { method: 'POST', body: blob });
+          if (put.ok) {
+            localImages.push({ name: im.name, variantValue: im.variantValue ?? null });
+            if (!images.includes(im.name)) images.push(im.name);
+          }
+        } catch (e) {
+          console.error('draft image failed', im.path, e);
+        }
+      }
+
+      // Convert with the rate in force now, exactly as a capture does.
+      const cur = p.sourceCurrency ?? null;
+      const amt = p.sourceAmount ?? (p.priceCents != null ? p.priceCents / 100 : null);
+      const rate = cur && pricing?.rates?.[cur];
+      const converted = (rate != null && amt != null)
+        ? convertMvr(amt, rate) : (p.priceCents ?? 0);
+
+      const sku = `EX-${Date.now().toString().slice(-5)}`;
+      const product = {
+        sku,
+        title: p.title ?? '',
         storeSlug: store?.slug ?? '',
-        priceCents: d.payload?.priceCents ?? null,
-        stockTotal: d.payload?.stockTotal ?? 0,
-        categories: [], images: [],
-        description: d.payload?.description ?? '',
-      });
+        categories: [],
+        images: localImages.map((im) => im.name),
+        description: p.description ?? '',
+        sourceUrl: p.sourceUrl ?? undefined,
+        specs: p.specs && Object.keys(p.specs).length ? p.specs : undefined,
+      };
+
+      const opts = (p.options ?? []).filter((o) => o.values?.length);
+      if (opts.length) {
+        product.options = opts.map((o) => ({ name: o.name, values: o.values }));
+        let combos = [{}];
+        for (const o of opts) {
+          combos = combos.flatMap((base) => o.values.map((v) => ({ ...base, [o.name]: v })));
+        }
+        product.variants = combos.map((choices, n) => ({
+          sku: `${sku}-${String(n + 1).padStart(2, '0')}`,
+          choices,
+          priceCents: converted,
+          stockTotal: Math.min(p.stockTotal ?? 0, STOCK_CAP),
+        }));
+
+        const mapping = mapImagesToVariants(localImages, product.variants);
+        for (const v of product.variants) {
+          const img = mapping.assignments.get(v.sku);
+          if (img) v.image = img;
+        }
+        if (mapping.productImages.length) product.images = mapping.productImages;
+      } else {
+        product.priceCents = converted;
+        product.stockTotal = Math.min(p.stockTotal ?? 0, STOCK_CAP);
+      }
+
+      doc.products.push(product);
       await setStatus(d.id, 'approved');
       setDirty(true);
       select(doc.products.length - 1);
       document.querySelector('.tab[data-tab="products"]').click();
-      banner('ok', 'Draft added. Give it a SKU and images, then save.', 7000);
+
+      const short = (p.images ?? []).length - localImages.length;
+      banner(short ? 'warn' : 'ok',
+        `Draft added with ${localImages.length} image(s)`
+        + (product.variants ? ` and ${product.variants.length} variant(s)` : '')
+        + (short ? ` — ${short} image(s) could not be downloaded.` : '.')
+        + ' Set a SKU and check the details, then save.', 10000);
     });
   });
 

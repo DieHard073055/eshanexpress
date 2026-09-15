@@ -1,67 +1,199 @@
 [
   {
-    "sku": "EX-1001",
-    "total": 24,
+    "sku": "CP-947933-01",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-1002",
-    "total": 40,
+    "sku": "CP-947933-02",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-2001",
-    "total": 12,
+    "sku": "CP-947933-03",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-2002",
-    "total": 0,
+    "sku": "CP-947933-04",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-4001",
-    "total": 15,
-    "leadTimeDays": 35,
-    "maxPerOrder": 2
-  },
-  {
-    "sku": "EX-3001",
-    "total": 7,
+    "sku": "CP-950446-01",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-3002",
-    "total": 30,
+    "sku": "CP-950446-02",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-5001-BLK-MIC",
-    "total": 709,
+    "sku": "CP-950446-03",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-5001-BLK-NOM",
-    "total": 1102,
+    "sku": "CP-950446-04",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-5001-CYN-MIC",
-    "total": 1127,
+    "sku": "CP-950446-05",
+    "total": 10,
     "leadTimeDays": null,
     "maxPerOrder": null
   },
   {
-    "sku": "EX-5001-CYN-NOM",
-    "total": 0,
+    "sku": "CP-950446-06",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-07",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-08",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-09",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-10",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-11",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-12",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-13",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-950446-14",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-464500-01",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-464500-02",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-464500-03",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-464500-04",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-467184-01",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-467184-02",
+    "total": 10,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-01",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-02",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-03",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-04",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-05",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-06",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-07",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-08",
+    "total": 3,
+    "leadTimeDays": null,
+    "maxPerOrder": null
+  },
+  {
+    "sku": "CP-667283-09",
+    "total": 3,
     "leadTimeDays": null,
     "maxPerOrder": null
   }
