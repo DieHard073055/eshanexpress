@@ -90,8 +90,8 @@ export async function productPage({ sku }) {
           </div>` : ''}
       </div>
 
-      <div>
-        <h1 class="text-xl font-semibold leading-snug sm:text-2xl">${esc(p.title)}</h1>
+      <div class="min-w-0">
+        <h1 class="min-w-0 break-words text-xl font-semibold leading-snug sm:text-2xl">${esc(p.title)}</h1>
         ${store ? `<p class="mt-1.5 text-sm text-neutral-500">Sold by
           <a href="#/?store=${encodeURIComponent(store.slug)}" class="text-brand-600 hover:underline">${esc(store.name)}</a></p>` : ''}
 
@@ -158,9 +158,9 @@ export async function productPage({ sku }) {
             <h2 class="font-semibold">Specifications</h2>
             <dl class="mt-2 divide-y divide-neutral-100 text-sm">
               ${Object.entries(p.specs).map(([k, v]) => `
-                <div class="flex gap-4 py-2">
-                  <dt class="w-40 shrink-0 text-neutral-500">${esc(k)}</dt>
-                  <dd class="text-neutral-800">${esc(v)}</dd>
+                <div class="flex flex-col gap-0.5 py-2 sm:flex-row sm:gap-4">
+                  <dt class="text-neutral-500 sm:w-40 sm:shrink-0">${esc(k)}</dt>
+                  <dd class="min-w-0 break-words text-neutral-800">${esc(v)}</dd>
                 </div>`).join('')}
             </dl>
           </div>` : ''}

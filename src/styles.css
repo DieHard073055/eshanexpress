@@ -6,8 +6,17 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* A flex/grid child's default min-width is its content width, not 0 — one
+     long unbreakable string (a title, a search input) is enough to push the
+     whole row wider than the viewport and drag the entire page into
+     horizontal scroll. Reset it on every element so flex/grid children can
+     actually shrink; shrink-0/w-* utilities still win since they come later
+     in the cascade. body is a hard backstop in case something still slips
+     through (an unbreakable word, a fixed-width image). */
+  *, *::before, *::after { min-width: 0; }
+  img, svg, video { max-width: 100%; height: auto; }
   body {
-    @apply bg-neutral-50 text-neutral-900 antialiased;
+    @apply bg-neutral-50 text-neutral-900 antialiased overflow-x-hidden;
   }
   /* Visible focus for keyboard users; suppressed for mouse clicks. */
   :focus-visible {
