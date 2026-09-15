@@ -1,4 +1,4 @@
-import { loadIndex, categoriesOf } from '../lib/catalog.js';
+import { loadIndex } from '../lib/catalog.js';
 import { setCurrency } from '../lib/money.js';
 import { productCard } from '../components/product-card.js';
 import { setView, skeletonGrid, errorView, esc } from '../components/layout.js';
@@ -18,6 +18,24 @@ function matches(p, q) {
   return q.toLowerCase().split(/\s+/).every((t) => hay.includes(t));
 }
 
+/**
+ * One store card in the home-page strip. Decoration is optional (§2 adds
+ * logos); without one the initial-letter tile is the neutral placeholder.
+ */
+function storeCard(store, count) {
+  const initial = esc(store.name.trim().charAt(0).toUpperCase());
+  return `
+    <a href="#/store/${encodeURIComponent(store.slug)}"
+       class="card group flex min-w-0 items-center gap-3 p-3 transition hover:border-brand-500 hover:shadow-md">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-600
+                  text-lg font-bold text-white">${initial}</div>
+      <div class="min-w-0">
+        <h3 class="truncate text-sm font-medium text-neutral-800 group-hover:text-brand-700">${esc(store.name)}</h3>
+        <p class="truncate text-xs text-neutral-500">${count} product${count === 1 ? '' : 's'}</p>
+      </div>
+    </a>`;
+}
+
 export async function listingPage(_params, query) {
   setView(skeletonGrid());
 
@@ -31,7 +49,6 @@ export async function listingPage(_params, query) {
   setCurrency(data.currency);
 
   const q = query.q ?? '';
-  const cat = query.cat ?? '';
   const store = query.store ?? '';
   const sort = query.sort ?? 'relevance';
   const inStockOnly = query.stock === '1';
@@ -39,7 +56,6 @@ export async function listingPage(_params, query) {
   let items = data.products.filter(
     (p) =>
       matches(p, q) &&
-      (!cat || (p.categories ?? []).includes(cat)) &&
       (!store || p.storeSlug === store) &&
       (!inStockOnly || p.inStock),
   );
@@ -48,9 +64,8 @@ export async function listingPage(_params, query) {
   const cmp = SORTS[sort];
   items = [...items].sort((a, b) => (a.inStock === b.inStock ? (cmp ? cmp(a, b) : 0) : a.inStock ? -1 : 1));
 
-  const cats = categoriesOf(data.products);
   const qs = (over) => {
-    const merged = { q, cat, store, sort, stock: inStockOnly ? '1' : '', ...over };
+    const merged = { q, store, sort, stock: inStockOnly ? '1' : '', ...over };
     const s = new URLSearchParams(Object.entries(merged).filter(([, v]) => v && v !== 'relevance'));
     return `#/${s.toString() ? `?${s}` : ''}`;
   };
@@ -60,11 +75,28 @@ export async function listingPage(_params, query) {
        ${active ? 'border-brand-600 bg-brand-50 font-medium text-brand-700'
                 : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400'}">${esc(label)}</a>`;
 
+  const stores = (data.stores ?? [])
+    .map((s) => ({ store: s, count: data.products.filter((p) => p.storeSlug === s.slug).length }))
+    .sort((a, b) => b.count - a.count || a.store.name.localeCompare(b.store.name));
+
+  // Browsing a search or a store filter is a focused view — the strip is for
+  // discovery, so it only shows on the unfiltered home.
+  const showStrip = !q && !store;
+
   setView(`
+    ${showStrip && stores.length ? `
+      <section aria-label="Stores" class="mb-6">
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Stores</h2>
+        <div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+          ${stores.map(({ store: s, count }) => `
+            <div class="w-52 shrink-0 sm:w-auto">${storeCard(s, count)}</div>`).join('')}
+        </div>
+      </section>` : ''}
+
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <h1 class="text-xl font-semibold">
-          ${q ? `Results for “${esc(q)}”` : cat ? esc(cat.replace(/^./, (c) => c.toUpperCase())) : 'All products'}
+          ${q ? `Results for “${esc(q)}”` : store ? esc((data.stores ?? []).find((s) => s.slug === store)?.name ?? store) : 'All products'}
         </h1>
         <p class="mt-0.5 text-sm text-neutral-500">${items.length} item${items.length === 1 ? '' : 's'}</p>
       </div>
@@ -80,9 +112,6 @@ export async function listingPage(_params, query) {
     </div>
 
     <div class="mb-5 flex gap-2 overflow-x-auto pb-1">
-      ${chip('All', qs({ cat: '' }), !cat)}
-      ${cats.map((c) => chip(c.replace(/^./, (ch) => ch.toUpperCase()), qs({ cat: c }), cat === c)).join('')}
-      <span class="mx-1 w-px shrink-0 bg-neutral-200"></span>
       ${chip(inStockOnly ? '✓ In stock' : 'In stock', qs({ stock: inStockOnly ? '' : '1' }), inStockOnly)}
     </div>
 

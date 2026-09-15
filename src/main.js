@@ -8,6 +8,7 @@ import { checkoutPage } from './pages/checkout.js';
 import { orderPage, ordersPage } from './pages/order.js';
 import { signInPage, signUpPage, forgotPage, accountPage } from './pages/account.js';
 import { storePage, storeProductsPage } from './pages/store.js';
+import { storefrontPage } from './pages/storefront.js';
 import { initAuth, onAuthChange } from './lib/auth.js';
 
 mountChrome((q) => {
@@ -27,6 +28,9 @@ route('/forgot', forgotPage);
 route('/account', accountPage);
 route('/store', storePage);
 route('/store/products', storeProductsPage);
+// Public per-store page — registered AFTER the static /store routes above so
+// the router (first-match, registration order) never treats "products" as a slug.
+route('/store/:slug', storefrontPage);
 
 setNotFound(() => setView(errorView('That page does not exist.')));
 
