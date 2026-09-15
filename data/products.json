@@ -46,7 +46,8 @@
             "Color": "black"
           },
           "priceCents": 92500,
-          "stockTotal": 10
+          "stockTotal": 10,
+          "image": "1more-sonoflow-se-hq31-over-ear--1.webp"
         },
         {
           "sku": "CP-947933-02",
@@ -54,7 +55,8 @@
             "Color": "Oat-white"
           },
           "priceCents": 92500,
-          "stockTotal": 10
+          "stockTotal": 10,
+          "image": "1more-sonoflow-se-hq31-over-ear--2.webp"
         },
         {
           "sku": "CP-947933-03",
@@ -62,7 +64,8 @@
             "Color": "blue"
           },
           "priceCents": 92500,
-          "stockTotal": 10
+          "stockTotal": 10,
+          "image": "1more-sonoflow-se-hq31-over-ear--3.webp"
         },
         {
           "sku": "CP-947933-04",
@@ -70,7 +73,8 @@
             "Color": "pink"
           },
           "priceCents": 92500,
-          "stockTotal": 10
+          "stockTotal": 10,
+          "image": "1more-sonoflow-se-hq31-over-ear--4.webp"
         }
       ]
     },
