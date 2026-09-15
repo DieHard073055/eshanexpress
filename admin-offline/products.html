@@ -879,6 +879,36 @@ async function ensureDraftAuth() {
   return draftAuth;
 }
 
+/**
+ * Remove every object under a draft's storage folder.
+ *
+ * Drafts never delete their row (status just moves to approved/rejected),
+ * but their images serve no purpose once a draft leaves "pending" — the
+ * approved copy lives in the built catalog, and a rejected one is gone.
+ * Left alone they sit in `draft-images` forever, eating the store's quota,
+ * which is shared with payment receipts. Best-effort: a failure here should
+ * never block approval or rejection, just get reported.
+ */
+async function cleanupDraftImages(url, key, token, storeId, draftId) {
+  const prefix = `${storeId}/${draftId}`;
+  const list = await fetch(`${url}/storage/v1/object/list/draft-images`, {
+    method: 'POST',
+    headers: { apikey: key, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ prefix, limit: 1000 }),
+  }).then((r) => (r.ok ? r.json() : []));
+
+  const names = (list ?? []).filter((f) => f?.name).map((f) => `${prefix}/${f.name}`);
+  if (!names.length) return { removed: 0 };
+
+  const del = await fetch(`${url}/storage/v1/object/draft-images`, {
+    method: 'DELETE',
+    headers: { apikey: key, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ prefixes: names }),
+  });
+  if (!del.ok) throw new Error(`storage delete failed (${del.status})`);
+  return { removed: names.length };
+}
+
 $('loadDrafts').addEventListener('click', async () => {
   const box = $('drafts');
   box.innerHTML = '<p class="small muted">Loading…</p>';
@@ -1028,11 +1058,21 @@ $('loadDrafts').addEventListener('click', async () => {
       document.querySelector('.tab[data-tab="products"]').click();
 
       const short = (p.images ?? []).length - localImages.length;
+      let cleanupNote = '';
+      try {
+        const { removed } = await cleanupDraftImages(url, key, auth.access_token, d.store_id, d.id);
+        if (removed) cleanupNote = ` Freed ${removed} image(s) from the store's draft quota.`;
+      } catch (e) {
+        console.error('draft cleanup failed', d.id, e);
+        cleanupNote = ' (Could not clear the draft from storage — it still counts against quota.)';
+      }
+
       banner(short ? 'warn' : 'ok',
         `Draft added with ${localImages.length} image(s)`
         + (product.variants ? ` and ${product.variants.length} variant(s)` : '')
         + (short ? ` — ${short} image(s) could not be downloaded.` : '.')
-        + ' Set a SKU and check the details, then save.', 10000);
+        + ' Set a SKU and check the details, then save.'
+        + cleanupNote, 10000);
     });
   });
 
@@ -1042,6 +1082,11 @@ $('loadDrafts').addEventListener('click', async () => {
       const note = prompt('Why is this rejected? The seller will see this.');
       if (!note) return;
       await setStatus(d.id, 'rejected', note.trim());
+      try {
+        await cleanupDraftImages(url, key, auth.access_token, d.store_id, d.id);
+      } catch (e) {
+        console.error('draft cleanup failed', d.id, e);
+      }
       btn.closest('.list-item').remove();
     });
   });

@@ -441,9 +441,13 @@ Verified live: a draft arrives `pending`, an image uploads to the store's own
 folder, an upload to another store's folder is refused (400), and an owner
 cannot self-approve.
 
-### Known gap: orphaned draft images
+### Draft image cleanup
 
-Deleting or approving a draft does not remove its images from Storage. They
-accumulate against the store's quota until cleaned up manually. A cleanup
-pass belongs in the admin approval flow — worth doing before onboarding
-sellers in volume, not urgent for one or two.
+Approving or rejecting a draft deletes its images from the `draft-images`
+bucket (`cleanupDraftImages` in `admin-offline/products.html`), freeing the
+store's quota. The draft row itself is kept (status moves to
+`approved`/`rejected`) — only the storage objects under its
+`{store_id}/{draft_id}/` prefix are removed, via the same
+`draft_images_delete_scoped` RLS policy the admin already has. Cleanup is
+best-effort: a failure is reported in the approval banner but never blocks
+the approval or rejection itself, so a storage hiccup can't stall the queue.
