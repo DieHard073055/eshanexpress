@@ -1,4 +1,4 @@
-import { formatCents, discountPercent } from '../lib/money.js';
+import { formatCents, discountPercent, hasPriceRange } from '../lib/money.js';
 import { imgAttrs } from '../lib/catalog.js';
 import { esc } from './layout.js';
 import { isPreorder, leadTimeLabel } from '../lib/preorder.js';
@@ -9,6 +9,8 @@ export function productCard(p) {
   const out = !p.inStock;
   const pre = isPreorder(p);
   const low = p.inStock && !pre && p.stockTotal <= 5;
+
+  const hasRange = hasPriceRange(p);
 
   return `
     <a href="#/product/${encodeURIComponent(p.sku)}"
@@ -27,8 +29,7 @@ export function productCard(p) {
         <h3 class="line-clamp-2 text-sm text-neutral-800 group-hover:text-brand-700">${esc(p.title)}</h3>
         <div class="mt-auto pt-2">
           <div class="flex items-baseline gap-1.5">
-            ${p.priceFrom != null
-              ? `<span class="text-xs text-neutral-500">from</span>` : ''}
+            ${hasRange ? `<span class="text-xs text-neutral-500">from</span>` : ''}
             <span class="text-base font-bold text-brand-600">${formatCents(p.priceFrom ?? p.priceCents)}</span>
             ${p.compareAtCents && p.compareAtCents > p.priceCents
               ? `<span class="text-xs text-neutral-400 line-through">${formatCents(p.compareAtCents)}</span>`
