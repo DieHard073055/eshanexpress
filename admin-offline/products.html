@@ -205,6 +205,9 @@
 
 <script type="module">
 import { mapImagesToVariants, describeMapping } from '/src/lib/image-match.js';
+// Edit-request approval logic lives in a shared module so the test suite
+// attacks the exact code the editor runs (release plan §3.2/§3.4).
+import { buildEditDiff, applyEditRequest, EDITABLE_LABELS } from '/admin-offline/edit-request.js';
 
 /**
  * Supplier stock is dropshipper inventory you do not hold. Cap what the
@@ -939,6 +942,50 @@ $('loadDrafts').addEventListener('click', async () => {
 
   box.innerHTML = drafts.map((d, i) => {
     const p = d.payload ?? {};
+
+    // Edit request (release plan §3): the admin approves a diff, not a
+    // product. Unknown SKUs render with a warning and can only be rejected.
+    if (d.target_sku != null) {
+      const current = doc.products.find((x) => x.sku === d.target_sku);
+      if (!current) {
+        return `
+        <div class="list-item" style="display:block;border-color:var(--bad,#b3261e)">
+          <div style="font-weight:600">${esc(d.target_sku)}</div>
+          <div class="small" style="color:var(--bad,#b3261e)">
+            Edit request for a product that is not in the catalog (removed, or never added).
+            Reject it so the seller hears why.
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button data-reject="${i}" class="danger small" style="flex:1">Reject</button>
+          </div>
+        </div>`;
+      }
+
+      const fmt = (f, v) => f === 'priceCents' ? `MVR ${fromCents(v)}`
+        : f === 'hidden' ? (v ? 'hidden' : 'shown')
+        : String(v ?? '');
+      const rows = buildEditDiff(p, current);
+      return `
+      <div class="list-item" style="display:block">
+        <div style="font-weight:600">Edit request: ${esc(current.title)}</div>
+        <div class="small muted">${esc(d.target_sku)} · ${esc(d.stores?.name ?? 'store')}</div>
+        <table style="width:100%;margin-top:8px;border-collapse:collapse;font-size:12.5px">
+          ${rows.map(({ field, from, to }) => `
+            <tr>
+              <td style="padding:3px 8px 3px 0;color:var(--muted);vertical-align:top;white-space:nowrap">
+                ${esc(EDITABLE_LABELS[field] ?? field)}
+              </td>
+              <td style="padding:3px 8px 3px 0;vertical-align:top">${esc(fmt(field, from))}</td>
+              <td style="padding:3px 0;vertical-align:top">→ <strong>${esc(fmt(field, to))}</strong></td>
+            </tr>`).join('')}
+        </table>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button data-approve="${i}" class="primary small" style="flex:1">Apply changes</button>
+          <button data-reject="${i}" class="danger small">Reject</button>
+        </div>
+      </div>`;
+    }
+
     const cur = p.sourceCurrency ?? null;
     const amt = p.sourceAmount ?? (p.priceCents != null ? p.priceCents / 100 : null);
     const rate = cur && pricing?.rates?.[cur];
@@ -976,6 +1023,48 @@ $('loadDrafts').addEventListener('click', async () => {
     btn.addEventListener('click', async () => {
       const d = drafts[Number(btn.dataset.approve)];
       const p = d.payload ?? {};
+
+      // ------------------------------------------------- edit request (§3)
+      if (d.target_sku != null) {
+        const store = stores.find((s) => s.id === d.store_id);
+        btn.disabled = true;
+        btn.textContent = 'Applying…';
+
+        const result = applyEditRequest(
+          { targetSku: d.target_sku, payload: p, storeSlug: store?.slug },
+          doc.products,
+        );
+        if (!result.ok) {
+          btn.disabled = false;
+          btn.textContent = 'Apply changes';
+          banner('bad', `Not applied: ${esc(result.reason)}`);
+          return;
+        }
+
+        await setStatus(d.id, 'approved');
+        setDirty(true);
+
+        let cleanupNote = '';
+        try {
+          const { removed } = await cleanupDraftImages(url, key, auth.access_token, d.store_id, d.id);
+          if (removed) cleanupNote = ` Freed ${removed} image(s) from the store's draft quota.`;
+        } catch (e) {
+          console.error('draft cleanup failed', d.id, e);
+          cleanupNote = ' (Could not clear the draft from storage — it still counts against quota.)';
+        }
+
+        const fields = Object.keys(result.changes).map((f) => EDITABLE_LABELS[f] ?? f).join(', ');
+        const ignoredNote = result.ignored.length
+          ? ` Ignored non-editable key(s): ${result.ignored.map(esc).join(', ')}.`
+          : '';
+        banner('ok',
+          `Applied ${fields} to ${esc(d.target_sku)}.${ignoredNote}`
+          + ' Save, build, commit and push to publish.' + cleanupNote, 10000);
+        btn.closest('.list-item').remove();
+        return;
+      }
+
+      // ------------------------------------------------- new product draft
       const store = stores.find((s) => s.id === d.store_id) ?? stores[0];
 
       btn.disabled = true;

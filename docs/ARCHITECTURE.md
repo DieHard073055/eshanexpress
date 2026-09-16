@@ -127,6 +127,7 @@ create table product_drafts (
   store_id uuid not null references stores(id),
   submitted_by uuid not null references auth.users(id),
   payload jsonb not null,            -- title, description, price, stock, images
+  target_sku text,                   -- set = edit request against this catalog SKU
   status text not null default 'pending',  -- pending | approved | rejected
   created_at timestamptz default now()
 );
@@ -422,6 +423,34 @@ concurrent carts.
 
 The sync never deletes a delisted SKU that still has live reservations —
 doing so would silently free stock held by an open order.
+
+### Owner edit requests and hidden products
+
+Store owners manage their live products through change **requests**, not
+direct edits (release plan §3):
+
+- The portal lists the store's products from the baked catalog. An owner
+  requests changes to `priceCents`, `stockTotal`, `description`, or
+  `hidden` on a non-variant product; the portal submits a `product_draft`
+  whose `payload` is a diff (`{ kind: 'edit', ...changed fields }`) and
+  whose `target_sku` names the catalog SKU. Variant products stay
+  admin-only — price and stock live on each variant.
+- RLS cannot check `target_sku` against a static catalog, so ownership is
+  enforced at **approval time** in the admin editor. The approval logic
+  lives in `admin-offline/edit-request.js`, a module the editor imports and
+  `tests/edit-request.test.mjs` attacks directly: unknown SKUs, foreign
+  stores, variant products, malformed values, and non-editable payload keys
+  (a crafted `title` is ignored and reported, never applied) are all
+  refused. The Drafts tab renders an edit request as a current → requested
+  diff per field; approving applies the fields onto `data/products.json`,
+  marks the draft approved, and runs the usual draft-image cleanup.
+- `hidden: true` on a product omits it from `catalog.json`, `index.json`,
+  and the stock manifest entirely — hidden means fully unorderable, not
+  merely delisted. Direct links fall through to the existing "Product not
+  found" card, and sync-stock drops the stock rows on the next deploy,
+  keeping any SKU that still has live reservations. Because hidden products
+  are absent from the baked catalog, the owner portal cannot list them;
+  un-hiding is an admin action in the product editor.
 
 ### Preorder items
 

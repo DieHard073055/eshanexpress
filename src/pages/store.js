@@ -465,6 +465,46 @@ export async function storeProductsPage() {
         the shop at the next site update.
       </p>
 
+      <h2 class="mt-6 font-semibold">Your products</h2>
+      <p class="mt-1 text-sm text-neutral-500">
+        Request a change to price, stock, description, or visibility. Requests
+        are reviewed before they go live.
+      </p>
+      <div id="mine" class="mt-3">
+        <div class="card p-6 text-sm text-neutral-500">Loading…</div>
+      </div>
+
+      <div id="edit-form" class="card mt-4 hidden p-5">
+        <h2 class="font-semibold">Request a change</h2>
+        <p id="ef-title" class="mt-1 text-sm text-neutral-500"></p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <label class="block">
+            <span class="text-sm font-medium text-neutral-700">Price (MVR)</span>
+            <input id="ef-price" type="number" min="0" step="0.01"
+                   class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-neutral-700">Quantity available</span>
+            <input id="ef-stock" type="number" min="0" step="1"
+                   class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+          </label>
+          <label class="block sm:col-span-2">
+            <span class="text-sm font-medium text-neutral-700">Description</span>
+            <textarea id="ef-desc" rows="3"
+                      class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"></textarea>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-neutral-700 sm:col-span-2">
+            <input id="ef-hidden" type="checkbox" class="rounded border-neutral-300" />
+            Hide this product (removes it from the shop)
+          </label>
+        </div>
+        <p id="ef-err" class="mt-3 hidden rounded-lg bg-red-50 p-2.5 text-sm text-red-700"></p>
+        <div class="mt-4 flex gap-2">
+          <button id="ef-save" class="btn-primary flex-1 text-sm">Submit request</button>
+          <button id="ef-cancel" class="btn-secondary text-sm">Cancel</button>
+        </div>
+      </div>
+
       <div id="form" class="card mt-4 hidden p-5">
         <h2 class="font-semibold">New product</h2>
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -537,6 +577,104 @@ export async function storeProductsPage() {
     if (error) return fail('Could not submit that draft.');
 
     toast('Draft submitted for review');
+    storeProductsPage();
+  });
+
+  // ---------------------------------------------------------- own products
+  // The portal already loads the catalog; filter to this store. Owners see
+  // exactly what shoppers see — which is also the limit: hidden products are
+  // absent from the baked catalog, so un-hiding goes through the admin.
+  let own = [];
+  try {
+    const cat = await loadCatalog();
+    own = (cat.products ?? []).filter((p) => p.storeSlug === profile.stores?.slug);
+  } catch {
+    document.getElementById('mine').innerHTML =
+      `<div class="card p-6 text-sm text-red-600">Could not load the catalog.</div>`;
+  }
+
+  const mine = document.getElementById('mine');
+  if (own.length) {
+    mine.innerHTML = own.map((p, i) => `
+      <div class="card mb-2 flex flex-wrap items-center justify-between gap-2 p-3">
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium">${esc(p.title)}</p>
+          <p class="text-xs text-neutral-500">
+            ${esc(p.sku)} · ${formatCents(p.priceCents)} · ${p.stockTotal} in stock
+          </p>
+        </div>
+        ${p.variants?.length
+          ? `<span class="text-xs text-neutral-400">Variant product — ask the administrator to change these</span>`
+          : `<button data-edit="${i}" class="btn-secondary shrink-0 text-sm">Request change</button>`}
+      </div>`).join('');
+  } else if (!mine.querySelector('.text-red-600')) {
+    mine.innerHTML = `<div class="card p-6 text-sm text-neutral-500">No live products yet.</div>`;
+  }
+
+  const editForm = document.getElementById('edit-form');
+  let editing = null;
+
+  document.querySelectorAll('[data-edit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      editing = own[Number(btn.dataset.edit)];
+      document.getElementById('ef-title').textContent = `${editing.title} (${editing.sku})`;
+      document.getElementById('ef-price').value = (editing.priceCents / 100).toFixed(2);
+      document.getElementById('ef-stock').value = editing.stockTotal;
+      document.getElementById('ef-desc').value = editing.description ?? '';
+      document.getElementById('ef-hidden').checked = false;
+      document.getElementById('ef-err').classList.add('hidden');
+      editForm.classList.remove('hidden');
+      editForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+
+  document.getElementById('ef-cancel').addEventListener('click', () => {
+    editing = null;
+    editForm.classList.add('hidden');
+  });
+
+  document.getElementById('ef-save').addEventListener('click', async () => {
+    if (!editing) return;
+    const errEl = document.getElementById('ef-err');
+    const fail = (m) => { errEl.textContent = m; errEl.classList.remove('hidden'); };
+    errEl.classList.add('hidden');
+
+    const price = parseFloat(document.getElementById('ef-price').value);
+    const stock = parseInt(document.getElementById('ef-stock').value, 10);
+    const description = document.getElementById('ef-desc').value.trim();
+    const hidden = document.getElementById('ef-hidden').checked;
+
+    if (!Number.isFinite(price) || price < 0) return fail('Enter a valid price.');
+    if (!Number.isInteger(stock) || stock < 0) return fail('Enter a whole number for quantity.');
+
+    // The payload is a diff — only fields that actually change, plus the
+    // discriminator. The admin approval flow honours nothing outside the
+    // editable set {priceCents, stockTotal, description, hidden}.
+    const payload = { kind: 'edit' };
+    const priceCents = Math.round(price * 100);
+    if (priceCents !== editing.priceCents) payload.priceCents = priceCents;
+    if (stock !== editing.stockTotal) payload.stockTotal = stock;
+    if (description !== (editing.description ?? '')) payload.description = description;
+    if (hidden) payload.hidden = true;
+
+    if (Object.keys(payload).length === 1) return fail('Nothing changed — adjust a field first.');
+
+    const btn = document.getElementById('ef-save');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    const { error } = await supabase.from('product_drafts').insert({
+      store_id: profile.store_id,
+      submitted_by: getUser().id,
+      target_sku: editing.sku,
+      payload,
+    });
+    btn.disabled = false;
+    btn.textContent = 'Submit request';
+    if (error) return fail('Could not submit that request.');
+
+    toast('Change request submitted for review');
+    editing = null;
+    editForm.classList.add('hidden');
     storeProductsPage();
   });
 

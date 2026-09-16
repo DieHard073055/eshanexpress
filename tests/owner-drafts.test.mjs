@@ -140,4 +140,24 @@ describe('store-owner drafts', { skip: URL && KEY ? false : 'no .env' }, () => {
     const [after] = await r.json();
     assert.equal(after.status, 'approved');
   });
+
+  test('an owner can submit an edit request for a catalog SKU', async () => {
+    // The RLS insert path is SKU-agnostic (ownership is enforced by the
+    // approval flow — see tests/edit-request.test.mjs); this asserts the
+    // draft arrives pending with its target and diff payload intact.
+    const r = await rest('product_drafts', 'owner', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        store_id: ids.store, submitted_by: ids.owner,
+        target_sku: 'CP-947933',
+        payload: { kind: 'edit', priceCents: 92500, stockTotal: 8 },
+      }),
+    });
+    assert.equal(r.status, 201, JSON.stringify(await r.clone().json?.() ?? {}));
+    const [d] = await r.json();
+    madeDrafts.push(d.id);
+    assert.equal(d.target_sku, 'CP-947933');
+    assert.equal(d.payload.kind, 'edit');
+    assert.equal(d.status, 'pending');
+  });
 });

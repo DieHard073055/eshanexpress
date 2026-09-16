@@ -13,8 +13,11 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC_IMAGES = join(ROOT, 'admin-offline', 'images');
-const OUT = join(ROOT, 'public', 'catalog');
+// Defaults serve the real repo; the env overrides exist so tests can build a
+// fixture catalog in a temp dir without touching the real data or output.
+const SRC_IMAGES = process.env.CATALOG_IMAGES_DIR ?? join(ROOT, 'admin-offline', 'images');
+const DATA_DIR = process.env.CATALOG_DATA_DIR ?? join(ROOT, 'data');
+const OUT = process.env.CATALOG_OUT_DIR ?? join(ROOT, 'public', 'catalog');
 const WIDTHS = [400, 800, 1200];
 
 const errors = [];
@@ -31,8 +34,8 @@ function readJson(p) {
   }
 }
 
-const productsDoc = readJson(join(ROOT, 'data', 'products.json'));
-const storesDoc = readJson(join(ROOT, 'data', 'stores.json'));
+const productsDoc = readJson(join(DATA_DIR, 'products.json'));
+const storesDoc = readJson(join(DATA_DIR, 'stores.json'));
 
 const stores = storesDoc.stores ?? [];
 const products = productsDoc.products ?? [];
@@ -161,6 +164,12 @@ for (const [i, p] of products.entries()) {
   }
 
   if (!p.description?.trim()) warn(`${at}: no description`);
+
+  // Hidden products are omitted from everything shipped (catalog, index,
+  // stock manifest) — see `visible` below. Only the shape is validated here.
+  if (p.hidden != null && typeof p.hidden !== 'boolean') {
+    fail(`${at}: "hidden" must be a boolean`);
+  }
 }
 
 if (errors.length) {
@@ -169,6 +178,12 @@ if (errors.length) {
   console.error('');
   process.exit(1);
 }
+
+// Hidden means fully unorderable: the product is absent from the shipped
+// catalog, so listings, direct links ("Product not found"), checkout and
+// stock sync all treat it as gone. sync-stock then drops its stock rows,
+// keeping any SKU that still has live reservations.
+const visible = products.filter((p) => !p.hidden);
 
 // ------------------------------------------------------------------- images
 rmSync(OUT, { recursive: true, force: true });
@@ -184,7 +199,7 @@ try {
 const imageManifest = {};
 let totalBytes = 0;
 
-for (const p of products) {
+for (const p of visible) {
   const variants = [];
   for (const [idx, img] of p.images.entries()) {
     const src = join(SRC_IMAGES, img);
@@ -324,7 +339,7 @@ if (SUPA_URL && SUPA_SECRET) {
 // ------------------------------------------------------------------ catalog
 const buildId = new Date().toISOString();
 
-const enriched = products.map((p) => {
+const enriched = visible.map((p) => {
   const variants = Array.isArray(p.variants) && p.variants.length ? p.variants : null;
 
   if (!variants) {
@@ -379,7 +394,7 @@ writeFileSync(join(OUT, 'index.json'), JSON.stringify(index));
 // One row per orderable SKU. For a variant product that means the variants,
 // never the parent — the parent is not orderable and must not hold stock.
 const stockRows = [];
-for (const p of products) {
+for (const p of visible) {
   if (Array.isArray(p.variants) && p.variants.length) {
     for (const v of p.variants) {
       stockRows.push({
@@ -401,7 +416,7 @@ const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 const catalogBytes = Buffer.byteLength(JSON.stringify(catalog));
 const indexBytes = Buffer.byteLength(JSON.stringify(index));
 
-console.log(`\n  Catalog built — ${products.length} products, ${stores.length} stores`);
+console.log(`\n  Catalog built — ${visible.length} products (${products.length - visible.length} hidden), ${stores.length} stores`);
 console.log(`    index.json    ${kb(indexBytes)}   (loaded on every page)`);
 console.log(`    catalog.json  ${kb(catalogBytes)}`);
 console.log(`    images        ${kb(totalBytes)}`);
