@@ -134,9 +134,13 @@ export async function orderPage({ id }) {
                  file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2
                  file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100" />
 
-          <div id="preview" class="mt-4 hidden">
+          <div id="preview" class="mt-4 hidden rounded-lg border border-neutral-200 p-3">
             <img id="thumb" alt="Receipt preview"
-                 class="max-h-56 rounded-lg border border-neutral-200 object-contain" />
+                 class="mx-auto max-h-56 object-contain" />
+            <p id="pdf-name" class="hidden text-sm text-neutral-600"></p>
+            <button id="replace" type="button" class="btn-secondary mt-3 w-full text-sm">
+              Choose a different image
+            </button>
           </div>
 
           <div id="otp-warn" class="mt-4 hidden rounded-lg border border-amber-300 bg-amber-50 p-3">
@@ -174,6 +178,13 @@ export async function orderPage({ id }) {
           </div>
 
           <p id="err" class="mt-4 hidden rounded-lg bg-red-50 p-3 text-sm text-red-700"></p>
+
+          <div id="progress" class="mt-4 hidden" role="status">
+            <div class="h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div id="progress-bar" class="h-2 rounded-full bg-brand-500 transition-all" style="width:0%"></div>
+            </div>
+            <p id="progress-label" class="mt-1.5 text-center text-xs text-neutral-500"></p>
+          </div>
 
           <button id="submit" class="btn-primary mt-5 w-full" disabled>
             ${order.receipt_path ? 'Replace receipt' : 'Submit receipt'}
@@ -255,9 +266,19 @@ export async function orderPage({ id }) {
   const submit = document.getElementById('submit');
   const refInput = document.getElementById('ref');
   const err = document.getElementById('err');
+  const progress = document.getElementById('progress');
+  const progressBar = document.getElementById('progress-bar');
+  const progressLabel = document.getElementById('progress-label');
+  const thumbEl = document.getElementById('thumb');
+  const pdfNameEl = document.getElementById('pdf-name');
   let chosen = null;
+  let lastUrl = null;
 
   const fail = (m) => { err.textContent = m; err.classList.remove('hidden'); };
+
+  // Preview first, commit later: the replace button just reopens the picker,
+  // so nothing uploads until "Submit receipt" is pressed.
+  document.getElementById('replace')?.addEventListener('click', () => fileInput.click());
 
   refInput.addEventListener('input', () => {
     submit.disabled = !(chosen || order.receipt_path) || !refInput.value.trim();
@@ -274,10 +295,19 @@ export async function orderPage({ id }) {
 
     chosen = await downscaleImage(file);
 
-    if (chosen.type.startsWith('image/')) {
-      const url = URL.createObjectURL(chosen);
-      document.getElementById('thumb').src = url;
-      document.getElementById('preview').classList.remove('hidden');
+    const isImage = chosen.type.startsWith('image/');
+    thumbEl.classList.toggle('hidden', !isImage);
+    pdfNameEl.classList.toggle('hidden', isImage);
+    if (isImage) {
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = URL.createObjectURL(chosen);
+      thumbEl.src = lastUrl;
+    } else {
+      pdfNameEl.textContent = `Selected: ${chosen.name || 'receipt.pdf'}`;
+    }
+    document.getElementById('preview').classList.remove('hidden');
+
+    if (isImage) {
 
       // OCR is advisory: a failure must never block submission.
       const ocrBox = document.getElementById('ocr');
@@ -330,7 +360,9 @@ export async function orderPage({ id }) {
     btn.textContent = 'Removing…';
 
     chosen = await cropTopBanner(chosen);
-    document.getElementById('thumb').src = URL.createObjectURL(chosen);
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl = URL.createObjectURL(chosen);
+    thumbEl.src = lastUrl;
 
     // Re-check: confirm the OTP is actually gone rather than assuming.
     try {
@@ -352,20 +384,44 @@ export async function orderPage({ id }) {
   submit.addEventListener('click', async () => {
     err.classList.add('hidden');
     submit.disabled = true;
-    submit.textContent = 'Uploading…';
+    submit.textContent = chosen ? 'Uploading…' : 'Submitting…';
+    fileInput.disabled = true;
+    document.getElementById('replace')?.setAttribute('disabled', '');
+
+    const showProgress = () => {
+      progress.classList.remove('hidden');
+      progressBar.style.width = '0%';
+      progressLabel.textContent = chosen ? 'Uploading receipt… 0%' : 'Saving your order…';
+    };
+    const hideProgress = () => {
+      progress.classList.add('hidden');
+      fileInput.disabled = false;
+      document.getElementById('replace')?.removeAttribute('disabled');
+    };
 
     try {
       let path = order.receipt_path;
 
       if (chosen) {
+        showProgress();
         const ext = chosen.type === 'application/pdf' ? 'pdf'
                   : (chosen.name.split('.').pop() || 'jpg').toLowerCase();
         // Path must start with the user id — the storage policy keys off it.
         path = `${getUser().id}/${order.id}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('receipts')
-          .upload(path, chosen, { upsert: true, contentType: chosen.type });
+          .upload(path, chosen, {
+            upsert: true,
+            contentType: chosen.type,
+            onUploadProgress: ({ loaded, total }) => {
+              const pct = total ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+              progressBar.style.width = `${pct}%`;
+              progressLabel.textContent = `Uploading receipt… ${pct}%`;
+            },
+          });
         if (upErr) throw upErr;
+        progressBar.style.width = '100%';
+        progressLabel.textContent = 'Saving your order…';
       }
 
       const { error: updErr } = await supabase
@@ -382,6 +438,7 @@ export async function orderPage({ id }) {
       toast('Receipt submitted');
       orderPage({ id: order.id });
     } catch (e) {
+      hideProgress();
       fail(e?.message?.includes('exceeded')
         ? 'That file is too large. Try a smaller photo.'
         : 'Upload failed. Check your connection and try again.');
