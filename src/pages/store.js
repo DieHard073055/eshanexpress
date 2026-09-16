@@ -195,7 +195,8 @@ function renderStats(rows, err) {
     ${explainer}`;
 }
 
-function orderCard(o, tab) {  const count = (o.items ?? []).reduce((n, i) => n + (i.qty ?? 0), 0);
+function orderCard(o, tab) {
+  const count = (o.items ?? []).reduce((n, i) => n + (i.qty ?? 0), 0);
   const age = Math.floor((Date.now() - new Date(o.created_at)) / 86400000);
 
   return `
