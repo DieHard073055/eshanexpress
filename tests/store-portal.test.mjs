@@ -206,11 +206,16 @@ describe('store portal', { skip: URL && KEY ? false : 'no .env' }, () => {
 
   test('owner can upload to their own storage folder, and replace it', async () => {
     const path = `${ids.store}/rls-test.webp`;
+    // The portal uploads with upsert, because replacing a banner writes the
+    // same stable path. A plain POST to an existing object is refused by
+    // Storage with 400/Duplicate regardless of RLS, so the header here is
+    // what makes this a test of the policy rather than of POST semantics.
     const put = (token) => fetch(`${URL}/storage/v1/object/store-assets/${path}`, {
       method: 'POST',
       headers: {
         apikey: KEY, Authorization: `Bearer ${token}`,
         'Content-Type': 'application/octet-stream',
+        'x-upsert': 'true',
       },
       body: new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]),
     });
