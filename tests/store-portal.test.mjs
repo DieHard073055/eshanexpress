@@ -7,6 +7,7 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { aggregateOrders } from '../src/lib/analytics.js';
 
 const env = existsSync('.env')
   ? Object.fromEntries(readFileSync('.env', 'utf8').trim().split('\n')
@@ -232,6 +233,52 @@ describe('store portal', { skip: URL && KEY ? false : 'no .env' }, () => {
         method: 'DELETE',
         headers: { apikey: KEY, Authorization: `Bearer ${tok.owner}` },
       });
+    }
+  });
+
+  // -------------------------------------------------------- analytics (§4)
+  test('analytics query sees only this store; fulfilled-only revenue', async () => {
+    // One fulfilled order for this store, one for a throwaway second store.
+    const [b] = (await rest('stores', 'admin', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ slug: `rls-test-d-${Date.now()}`, name: 'RLS Test Store D' }),
+    })).body;
+
+    const mk = async (storeId, total) => {
+      const [o] = (await rest('orders', 'customer', {
+        method: 'POST', headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          order_number: `AN-${Date.now()}-${total}`, user_id: ids.customer, store_id: storeId,
+          items: [{ sku: 'EX-1001', qty: 1, unit_price: total }], total_cents: total,
+        }),
+      })).body;
+      await rest(`orders?id=eq.${o.id}`, 'admin', {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'fulfilled', fulfilled_at: new Date().toISOString() }),
+      });
+      return o;
+    };
+
+    try {
+      const own = await mk(ids.store, 34900);
+      const foreign = await mk(b.id, 99900);
+
+      // The exact query the portal's analytics strip runs.
+      const r = await rest('orders?select=id,total_cents,status,fulfilled_at,created_at', 'owner');
+      assert.equal(r.status, 200);
+      const idsSeen = r.body.map((o) => o.id);
+      assert.ok(idsSeen.includes(own.id), 'own fulfilled order missing from the analytics query');
+      assert.ok(!idsSeen.includes(foreign.id), 'a foreign store order leaked into the query');
+
+      // The metric definitions agree: only the own-store fulfilled order counts.
+      const a = aggregateOrders(r.body);
+      assert.equal(a.revenueAll, 34900, `revenue includes foreign orders: ${a.revenueAll}`);
+      assert.equal(a.ordersAll, 1);
+      assert.equal(a.revenueMonth, 34900, 'fulfilled_at this month counts as this month');
+    } finally {
+      await rest(`orders?store_id=eq.${b.id}`, 'admin', { method: 'DELETE' });
+      await rest(`orders?order_number=like.AN-%25`, 'admin', { method: 'DELETE' });
+      await rest(`stores?id=eq.${b.id}`, 'admin', { method: 'DELETE' });
     }
   });
 });

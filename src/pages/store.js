@@ -4,6 +4,7 @@ import { getUser, getProfile } from '../lib/auth.js';
 import { supabase, isConfigured } from '../lib/supabase.js';
 import { navigate } from '../lib/router.js';
 import { loadCatalog } from '../lib/catalog.js';
+import { aggregateOrders } from '../lib/analytics.js';
 
 /**
  * Store-owner portal.
@@ -86,22 +87,35 @@ export async function storePage(_p, query) {
           </a>`).join('')}
       </div>
 
+      <div id="stats" class="mt-4" aria-live="polite">
+        <div class="card h-[4.5rem] animate-pulse bg-neutral-50"></div>
+      </div>
+
       <div id="queue" class="mt-4">
         <div class="card p-10 text-center text-sm text-neutral-500">Loading…</div>
       </div>
     </div>`);
 
   // Counts for every tab in one round trip, so the badges are accurate
-  // without three separate queries.
-  const { data: all, error } = await supabase
-    .from('orders')
-    .select('id, order_number, status, total_cents, created_at, items, receipt_path, fulfilled_at, handover_locked')
-    .in('status', Object.keys(QUEUES))
-    .order('created_at', { ascending: true }); // oldest first: FIFO fulfilment
+  // without three separate queries. The analytics strip runs alongside:
+  // one minimal query, RLS-scoped to this store, aggregated by the shared
+  // metric definitions.
+  const [{ data: all, error }, { data: statRows, error: statErr }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, order_number, status, total_cents, created_at, items, receipt_path, fulfilled_at, handover_locked')
+      .in('status', Object.keys(QUEUES))
+      .order('created_at', { ascending: true }), // oldest first: FIFO fulfilment
+    supabase
+      .from('orders')
+      .select('total_cents, status, fulfilled_at, created_at'),
+  ]);
 
   if (error) {
     return setView(errorView('Could not load your orders.'));
   }
+
+  renderStats(statRows, statErr);
 
   for (const key of Object.keys(QUEUES)) {
     const el = document.querySelector(`[data-count="${key}"]`);
@@ -129,8 +143,59 @@ export async function storePage(_p, query) {
   wireActions(rows, tab);
 }
 
-function orderCard(o, tab) {
-  const count = (o.items ?? []).reduce((n, i) => n + (i.qty ?? 0), 0);
+/** Analytics strip above the queue. Fails soft: a stats error never blocks orders. */
+function renderStats(rows, err) {
+  const box = document.getElementById('stats');
+  if (!box) return;
+  if (err || !Array.isArray(rows)) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const a = aggregateOrders(rows);
+  const explainer = `
+    <p class="mt-2 text-xs text-neutral-500">
+      Revenue counts <strong>fulfilled</strong> orders only — paid but not yet
+      handed over is not counted.
+    </p>`;
+
+  if (!a.hasFulfilled) {
+    box.innerHTML = `
+      <div class="card p-5">
+        <p class="font-medium text-neutral-700">No completed orders yet</p>
+        ${a.awaiting ? `
+          <p class="mt-1 text-sm text-neutral-500">
+            ${a.awaiting} order${a.awaiting === 1 ? '' : 's'} awaiting action — revenue
+            appears once an order is handed over.
+          </p>` : `
+          <p class="mt-1 text-sm text-neutral-500">Revenue appears here once orders are fulfilled.</p>`}
+      </div>
+      ${explainer}`;
+    return;
+  }
+
+  const cell = (label, value, big = false) => `
+    <div class="card p-4">
+      <p class="text-xs text-neutral-500">${esc(label)}</p>
+      <p class="${big ? 'text-xl font-bold text-brand-600' : 'mt-0.5 text-lg font-semibold'}">${esc(value)}</p>
+    </div>`;
+
+  box.innerHTML = `
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      ${cell('Revenue this month', formatCents(a.revenueMonth), true)}
+      ${cell('Orders this month', String(a.ordersMonth))}
+      ${cell('Revenue all time', formatCents(a.revenueAll))}
+      ${cell('Orders all time', String(a.ordersAll))}
+    </div>
+    ${a.awaiting ? `
+      <p class="mt-2 text-sm text-neutral-600">
+        <span class="font-semibold">${a.awaiting}</span>
+        order${a.awaiting === 1 ? '' : 's'} awaiting action
+      </p>` : ''}
+    ${explainer}`;
+}
+
+function orderCard(o, tab) {  const count = (o.items ?? []).reduce((n, i) => n + (i.qty ?? 0), 0);
   const age = Math.floor((Date.now() - new Date(o.created_at)) / 86400000);
 
   return `
