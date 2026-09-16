@@ -58,7 +58,12 @@ export function footer() {
   return `
     <footer class="mt-16 border-t border-neutral-200 bg-white">
       <div class="mx-auto max-w-6xl px-4 py-8 text-sm text-neutral-500">
-        <p>&copy; ${new Date().getFullYear()} EshanExpress</p>
+        <nav class="flex flex-col gap-2 sm:flex-row sm:gap-6" aria-label="Legal">
+          <a href="#/terms" class="hover:text-brand-600">Terms of Service</a>
+          <a href="#/privacy" class="hover:text-brand-600">Privacy Policy</a>
+          <a href="#/returns" class="hover:text-brand-600">Returns &amp; Refunds</a>
+        </nav>
+        <p class="mt-4">&copy; ${new Date().getFullYear()} EshanExpress</p>
         <p class="mt-1">Payment by bank transfer. Upload your receipt at checkout.</p>
       </div>
     </footer>`;
