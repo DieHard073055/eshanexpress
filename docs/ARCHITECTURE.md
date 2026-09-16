@@ -185,6 +185,31 @@ Every table has RLS enabled. Summary:
   — or admin, mirroring `draft-images`. Stable per-store paths make
   replacement overwrite instead of accumulating.
 
+### Store-owner applications
+
+A customer applies via **Sell on EshanExpress** (`#/sell`); the row lands in
+`store_applications` (RLS: insert/select own, admin reviews). One pending
+application per user — a partial unique index on `user_id where status =
+'pending'`.
+
+Approving is deliberately **manual and offline**. The admin editor's
+Applications tab records the decision (status + note the applicant sees) and
+shows the exact SQL to run; the buttons never grant the role. To actually
+create a seller:
+
+```sql
+-- 1. Create the store (note the id it returns):
+insert into stores (slug, name) values ('<slug>', '<store name>');
+
+-- 2. Elevate the applicant (store_id = the id from step 1):
+update profiles set role = 'store_owner', store_id = '<store id>'
+ where id = '<applicant user id>';
+```
+
+`guard_profile_update` keeps blocking self-elevation: until an admin runs
+step 2, an "approved" applicant is still a customer and cannot reach the
+portal.
+
 ### Store decoration (build merge)
 
 Owners edit banner/logo/blurb in the portal (`#/store/profile`). The

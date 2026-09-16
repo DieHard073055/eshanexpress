@@ -198,6 +198,7 @@ export async function accountPage() {
     </div>`);
 
   // Sellers get a link to their portal; regular customers never see it.
+  // Customers instead get the seller-application entry (release plan §5).
   const profile = await getProfile();
   if (profile?.role === 'store_owner' || profile?.role === 'admin') {
     const box = document.getElementById('staff-link');
@@ -212,6 +213,19 @@ export async function accountPage() {
           </span>
         </span>
         <span aria-hidden="true" class="text-brand-500">&rarr;</span>
+      </a>`;
+  } else if (profile?.role === 'customer') {
+    const box = document.getElementById('staff-link');
+    box.className = 'mt-4';
+    box.innerHTML = `
+      <a href="#/sell" class="card flex items-center justify-between p-4 hover:border-brand-500">
+        <span>
+          <span class="font-medium">Sell on EshanExpress</span>
+          <span class="mt-0.5 block text-xs text-neutral-500">
+            Open your own store on the marketplace
+          </span>
+        </span>
+        <span aria-hidden="true" class="text-neutral-400">&rarr;</span>
       </a>`;
   }
 

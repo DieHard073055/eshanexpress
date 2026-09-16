@@ -10,6 +10,7 @@ import { signInPage, signUpPage, forgotPage, accountPage } from './pages/account
 import { storePage, storeProductsPage, storeProfilePage } from './pages/store.js';
 import { storefrontPage } from './pages/storefront.js';
 import { termsPage, privacyPage, returnsPage } from './pages/legal.js';
+import { sellPage } from './pages/sell.js';
 import { initAuth, onAuthChange } from './lib/auth.js';
 
 mountChrome((q) => {
@@ -38,6 +39,7 @@ route('/store/:slug', storefrontPage);
 route('/terms', termsPage);
 route('/privacy', privacyPage);
 route('/returns', returnsPage);
+route('/sell', sellPage);
 
 setNotFound(() => setView(errorView('That page does not exist.')));
 

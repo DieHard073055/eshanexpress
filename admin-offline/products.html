@@ -84,6 +84,7 @@
         <div class="tabs">
           <button class="tab sel" data-tab="products">Products</button>
           <button class="tab" data-tab="drafts">Drafts <span id="draftCount" class="muted"></span></button>
+          <button class="tab" data-tab="applications">Applications <span id="appCount" class="muted"></span></button>
           <button class="tab" data-tab="captured">Captured <span id="capCount" class="muted"></span></button>
         </div>
 
@@ -107,6 +108,16 @@
           </p>
           <button id="loadDrafts" style="width:100%">Load from Supabase</button>
           <div id="drafts" style="margin-top:10px;"></div>
+        </div>
+
+        <div id="tab-applications" class="hide">
+          <p class="small muted" style="margin:0 0 8px;">
+            Customers applying to sell. Recording a decision does
+            <strong>not</strong> create the store or grant the role — run the
+            SQL shown for each approved application in the Supabase SQL editor.
+          </p>
+          <button id="loadApps" style="width:100%">Load from Supabase</button>
+          <div id="applications" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>
@@ -827,6 +838,7 @@ document.querySelectorAll('.tab').forEach((t) => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('sel', x === t));
     $('tab-products').classList.toggle('hide', t.dataset.tab !== 'products');
     $('tab-drafts').classList.toggle('hide', t.dataset.tab !== 'drafts');
+    $('tab-applications').classList.toggle('hide', t.dataset.tab !== 'applications');
     $('tab-captured').classList.toggle('hide', t.dataset.tab !== 'captured');
   });
 });
@@ -1179,6 +1191,105 @@ $('loadDrafts').addEventListener('click', async () => {
       btn.closest('.list-item').remove();
     });
   });
+});
+
+// ---------------------------------------------------------- applications
+// Store-owner applications (release plan §5). Reviewing is deliberately
+// manual: the buttons below only record the decision (status + note). The
+// actual elevation — insert stores row, update profiles — is SQL the admin
+// runs by hand, which is why each card shows the exact statements.
+$('loadApps').addEventListener('click', async () => {
+  const box = $('applications');
+  box.innerHTML = '<p class="small muted">Loading…</p>';
+
+  let url; let key; let auth;
+  try {
+    const a = await ensureDraftAuth();
+    url = a.url; key = a.key; auth = { access_token: a.token };
+  } catch (e) {
+    box.innerHTML = `<p class="small" style="color:var(--bad)">${esc(e.message)}</p>`;
+    return;
+  }
+
+  const res = await fetch(
+    `${url}/rest/v1/store_applications?select=*&order=created_at.desc`,
+    { headers: { apikey: key, authorization: `Bearer ${auth.access_token}` } });
+
+  if (!res.ok) {
+    const err = await res.text();
+    box.innerHTML = `<p class="small" style="color:var(--bad)">Could not load applications (${res.status}). ${esc(err.slice(0, 120))}</p>`;
+    return;
+  }
+  const apps = await res.json();
+  $('appCount').textContent = apps.filter((a) => a.status === 'pending').length
+    ? `(${apps.filter((a) => a.status === 'pending').length})` : '';
+
+  if (!apps.length) { box.innerHTML = '<p class="small muted">No applications yet.</p>'; return; }
+
+  const slugify = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'new-store';
+
+  const sqlFor = (a) => [
+    '-- 1. Create the store (note the id it returns):',
+    `insert into stores (slug, name) values ('${slugify(a.store_name)}', '${a.store_name.replace(/'/g, "''")}');`,
+    '-- 2. Elevate the applicant (store_id = the id from step 1):',
+    `update profiles set role = 'store_owner', store_id = '<store id>' where id = '${a.user_id}';`,
+  ].join('\n');
+
+  const badge = {
+    pending: 'background:var(--warn-bg,#fef3c7);color:#92400e',
+    approved: 'background:#dcfce7;color:#166534',
+    rejected: 'background:#fee2e2;color:#991b1b',
+  };
+
+  box.innerHTML = apps.map((a, i) => `
+    <div class="list-item" style="display:block">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <div style="font-weight:600">${esc(a.store_name)}</div>
+        <span class="small" style="border-radius:999px;padding:1px 8px;${badge[a.status] ?? ''}">${esc(a.status)}</span>
+      </div>
+      <div class="small muted">${esc(a.contact)} · ${new Date(a.created_at).toLocaleDateString()}</div>
+      ${a.note ? `<div class="small" style="margin-top:4px">${esc(a.note)}</div>` : ''}
+      ${a.review_note ? `<div class="small muted" style="margin-top:4px">Note on file: ${esc(a.review_note)}</div>` : ''}
+      ${a.status === 'pending' ? `
+        <pre class="small" style="margin:8px 0 0;padding:8px;background:var(--bg-soft,#f5f5f5);border-radius:8px;overflow-x:auto">${esc(sqlFor(a))}</pre>
+        <input data-note="${i}" placeholder="Note the applicant will see (optional)"
+               style="width:100%;margin-top:6px;padding:6px 8px;border:1px solid var(--border,#ddd);border-radius:8px" />
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button data-approve-app="${i}" class="primary small" style="flex:1">Record approval</button>
+          <button data-reject-app="${i}" class="danger small">Record rejection</button>
+        </div>
+        <p class="small muted" style="margin:6px 0 0">
+          Recording the decision does not grant the role — run the SQL above after approving.
+        </p>` : ''}
+    </div>`).join('');
+
+  const decide = (i, status) => async (e) => {
+    const a = apps[i];
+    const note = box.querySelector(`[data-note="${i}"]`)?.value.trim() || null;
+    const r = await fetch(`${url}/rest/v1/store_applications?id=eq.${a.id}`, {
+      method: 'PATCH',
+      headers: { apikey: key, authorization: `Bearer ${auth.access_token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ status, review_note: note }),
+    });
+    if (!r.ok) {
+      banner('bad', `Could not record that decision (${r.status}).`);
+      return;
+    }
+    banner('ok', `${status === 'approved' ? 'Approved' : 'Rejected'} "${a.store_name}".`
+      + (status === 'approved'
+        ? ' Now run the SQL shown above in the Supabase SQL editor to create the store.'
+        : ''), 12000);
+    e.target.closest('.list-item').remove();
+    const left = box.querySelectorAll('.list-item').length;
+    $('appCount').textContent = left ? `(${left})` : '';
+    if (!left) box.innerHTML = '<p class="small muted">No applications left to review.</p>';
+  };
+
+  box.querySelectorAll('[data-approve-app]').forEach((btn) =>
+    btn.addEventListener('click', decide(Number(btn.dataset.approveApp), 'approved')));
+  box.querySelectorAll('[data-reject-app]').forEach((btn) =>
+    btn.addEventListener('click', decide(Number(btn.dataset.rejectApp), 'rejected')));
 });
 
 load();
