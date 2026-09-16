@@ -115,7 +115,10 @@ create table profiles (
 create table stores (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
-  name text not null
+  name text not null,
+  banner_path text,                   -- store-assets/{id}/banner.webp (public bucket)
+  logo_path   text,                   -- store-assets/{id}/logo.webp
+  blurb       text                    -- owner-edited; merged into the build
 );
 
 -- Store-owner submissions; invisible to shoppers until approved + redeployed
@@ -169,8 +172,30 @@ Every table has RLS enabled. Summary:
   reads + updates status on their `store_id`; admin full access.
 - `product_drafts`: store owner CRUD own store's pending drafts; admin full.
 - `profiles`: self-read; admin full. Role is **not** self-writable.
+- `stores`: public read; admin full write; a store_owner may update **only
+  their own row** and **only** `banner_path`/`logo_path`/`blurb` — the row
+  policy scopes by `auth_store_id()`, and the `guard_store_owner_update`
+  trigger rejects any change to `id`/`slug`/`name`/`created_at` from a
+  non-admin (RLS cannot compare columns; the trigger can).
 - `stock_reservations`: public read; writes only via a `security definer`
   function called during checkout, so clients can't set arbitrary values.
+- `store-assets` bucket (public read): storefront decoration. Writes scoped
+  by the first path segment — `(storage.foldername(name))[1] = auth_store_id()`
+  — or admin, mirroring `draft-images`. Stable per-store paths make
+  replacement overwrite instead of accumulating.
+
+### Store decoration (build merge)
+
+Owners edit banner/logo/blurb in the portal (`#/store/profile`). The
+storefront reads the baked catalog, so `scripts/build-catalog.mjs` merges
+decoration at build time: when `SUPABASE_URL` + `SUPABASE_SECRET_KEY` are
+present it fetches `stores`, overlays `blurb`, downloads each image through
+the same sharp pipeline into `public/catalog/img/stores/<slug>/`, and emits
+width manifests on the store entries. Absent credentials (every local
+`npm run catalog`) it warns and builds from `data/stores.json` alone; a
+download failure is a warning, never a build failure. Images are downscaled
+in the browser before upload (banner 1600 px / 2 MB, logo 512 px / 1 MB,
+JPEG/PNG/WebP) and overwrite `{store_id}/banner.webp` / `logo.webp`.
 
 ---
 

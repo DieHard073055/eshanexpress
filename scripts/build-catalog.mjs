@@ -241,6 +241,75 @@ for (const p of products) {
   }
 }
 
+// --------------------------------------------- store decoration (release §2)
+// Owners edit banner/logo/blurb on their store row in Supabase; the storefront
+// reads the baked catalog, so the build merges decoration in when credentials
+// are present. Without them (every local `npm run catalog`) the file alone is
+// used and the build still succeeds.
+async function emitStoreImage(buf, slug, kind, alt) {
+  const dir = join(OUT, 'img', 'stores', slug);
+  mkdirSync(dir, { recursive: true });
+
+  if (sharp) {
+    const meta = await sharp(buf).metadata();
+    const set = {};
+    for (const w of WIDTHS) {
+      if (meta.width && meta.width < w && w !== WIDTHS[0]) continue; // don't upscale
+      const name = `${kind}-${w}.webp`;
+      const info = await sharp(buf)
+        .resize(w, null, { withoutEnlargement: true })
+        .webp({ quality: 78 })
+        .toFile(join(dir, name));
+      set[w] = { file: `stores/${slug}/${name}`, bytes: info.size };
+      totalBytes += info.size;
+    }
+    return { widths: set, alt };
+  }
+
+  const name = `${kind}.bin`;
+  writeFileSync(join(dir, name), buf);
+  return { widths: { 800: { file: `stores/${slug}/${name}` } }, alt };
+}
+
+const SUPA_URL = process.env.SUPABASE_URL;
+const SUPA_SECRET = process.env.SUPABASE_SECRET_KEY;
+
+if (SUPA_URL && SUPA_SECRET) {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/stores?select=slug,banner_path,logo_path,blurb`, {
+      headers: { apikey: SUPA_SECRET, Authorization: `Bearer ${SUPA_SECRET}` },
+    });
+    if (!res.ok) throw new Error(`stores fetch returned HTTP ${res.status}`);
+    const rows = await res.json();
+
+    for (const row of rows) {
+      const store = stores.find((s) => s.slug === row.slug);
+      if (!store) continue; // a store row without a catalog entry is not ours to judge
+      if (row.blurb != null) store.blurb = row.blurb;
+
+      for (const kind of ['banner', 'logo']) {
+        const path = row[`${kind}_path`];
+        if (!path) continue; // no decoration yet is not an error
+        try {
+          const img = await fetch(
+            `${SUPA_URL}/storage/v1/object/public/store-assets/${encodeURI(path)}`,
+          );
+          if (!img.ok) throw new Error(`HTTP ${img.status}`);
+          const buf = Buffer.from(await img.arrayBuffer());
+          store[kind] = await emitStoreImage(buf, store.slug, kind, `${store.name} ${kind}`);
+        } catch (e) {
+          // A broken banner must not block a deploy that also carries product changes.
+          warn(`store "${store.slug}": could not bake ${kind} (${e.message})`);
+        }
+      }
+    }
+  } catch (e) {
+    warn(`store decoration not merged: ${e.message} — using stores.json alone`);
+  }
+} else {
+  warn('SUPABASE_URL/SUPABASE_SECRET_KEY not set — store decoration not merged (stores.json alone)');
+}
+
 // ------------------------------------------------------------------ catalog
 const buildId = new Date().toISOString();
 

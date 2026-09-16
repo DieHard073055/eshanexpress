@@ -48,6 +48,11 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # Lets build-catalog.mjs merge store decoration (banner/logo/blurb)
+          # into the baked catalog. Same values as the stock-sync step below;
+          # the secret key is used by the build script only, never bundled.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
 
       # Catches a bundle built without Supabase config, or one that leaked a
       # secret — both silent failures that only show up on the live site.

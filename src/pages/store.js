@@ -68,7 +68,10 @@ export async function storePage(_p, query) {
           <h1 class="text-xl font-semibold">${esc(profile.stores?.name ?? 'Your store')}</h1>
           <p class="mt-0.5 text-sm text-neutral-500">Order queue</p>
         </div>
-        <a href="#/store/products" class="btn-secondary text-sm">Product drafts</a>
+        <div class="flex gap-2">
+          <a href="#/store/profile" class="btn-secondary text-sm">Store profile</a>
+          <a href="#/store/products" class="btn-secondary text-sm">Product drafts</a>
+        </div>
       </div>
 
       <div class="mt-5 flex gap-2 overflow-x-auto pb-1" role="tablist">
@@ -246,6 +249,187 @@ function wireActions(rows, tab) {
       if (e.key === 'Enter') card.querySelector('[data-act="complete"]')?.click();
     });
   }
+}
+
+// ---------------------------------------------------------------- profile
+/**
+ * Store profile: banner, logo, blurb (release plan §2).
+ *
+ * Owners upload two images and a short blurb; RLS + the
+ * guard_store_owner_update trigger confine them to their own store's
+ * banner_path/logo_path/blurb columns. The values reach the storefront at
+ * the next build, which merges them from Supabase into the baked catalog.
+ *
+ * Images are downscaled in the browser before upload (the same canvas
+ * approach as receipts) and overwrite a stable path per store, so replacing
+ * an image never accumulates storage.
+ */
+const ASSET_LIMITS = {
+  banner: { label: 'Banner', maxBytes: 2 * 1024 * 1024, maxDim: 1600 },
+  logo:   { label: 'Logo',   maxBytes: 1 * 1024 * 1024, maxDim: 512 },
+};
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
+const BLURB_MAX = 200;
+
+/** Canvas downscale to WebP, mirroring downscaleImage in lib/ocr.js. */
+async function shrinkToWebp(file, maxDim) {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file; // give the server-side validation a chance to complain
+
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/webp', 0.85));
+  if (!blob || blob.size >= file.size) return file; // never make it bigger
+  return new File([blob], file.name.replace(/\.\w+$/, '') + '.webp', { type: 'image/webp' });
+}
+
+export async function storeProfilePage() {
+  const profile = await requireStore();
+  if (!profile) return;
+  if (!profile.store_id) {
+    return setView(errorView('This account has no store attached.'));
+  }
+
+  const storeId = profile.store_id;
+  const { data: store, error } = await supabase
+    .from('stores')
+    .select('id, slug, name, banner_path, logo_path, blurb')
+    .eq('id', storeId)
+    .maybeSingle();
+
+  if (error || !store) {
+    return setView(errorView('Could not load your store.'));
+  }
+
+  const publicUrl = (path) => path
+    ? `${supabase.supabaseUrl}/storage/v1/object/public/store-assets/${encodeURI(path)}`
+    : null;
+
+  const bannerUrl = publicUrl(store.banner_path);
+  const logoUrl = publicUrl(store.logo_path);
+
+  setView(`
+    <div class="mx-auto max-w-3xl">
+      <a href="#/store" class="text-sm text-neutral-500 hover:text-brand-600">&larr; Order queue</a>
+      <h1 class="mt-3 text-xl font-semibold">Store profile</h1>
+      <p class="mt-1 text-sm text-neutral-500">
+        Shown on your public store page at the next site update.
+        ${esc(store.name)}
+      </p>
+
+      <div class="card mt-4 p-5">
+        <h2 class="font-semibold">Banner</h2>
+        <p class="mt-1 text-xs text-neutral-500">
+          Wide image across the top of your store page. JPEG, PNG or WebP, up to 2&nbsp;MB
+          (larger images are resized to 1600&nbsp;px wide).
+        </p>
+        ${bannerUrl ? `
+          <img src="${esc(bannerUrl)}" alt="Current banner"
+               class="mt-3 aspect-video w-full rounded-lg object-cover sm:aspect-[21/9]" />` : `
+          <div class="mt-3 flex aspect-video w-full items-center justify-center rounded-lg bg-neutral-100
+                      text-sm text-neutral-400 sm:aspect-[21/9]">No banner yet</div>`}
+        <input id="pick-banner" type="file" accept="${ACCEPTED.join(',')}" class="mt-3 block w-full text-sm
+               file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2
+               file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100" />
+      </div>
+
+      <div class="card mt-4 p-5">
+        <h2 class="font-semibold">Logo</h2>
+        <p class="mt-1 text-xs text-neutral-500">
+          Shown beside your store name. JPEG, PNG or WebP, up to 1&nbsp;MB
+          (larger images are resized to 512&nbsp;px).
+        </p>
+        ${logoUrl ? `
+          <img src="${esc(logoUrl)}" alt="Current logo"
+               class="mt-3 h-20 w-20 rounded-2xl border border-neutral-200 object-cover" />` : `
+          <div class="mt-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-neutral-100
+                      text-sm text-neutral-400">No logo</div>`}
+        <input id="pick-logo" type="file" accept="${ACCEPTED.join(',')}" class="mt-3 block w-full text-sm
+               file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2
+               file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100" />
+      </div>
+
+      <div class="card mt-4 p-5">
+        <label for="blurb" class="font-semibold">Blurb</label>
+        <p class="mt-1 text-xs text-neutral-500">One or two sentences about your store.</p>
+        <textarea id="blurb" rows="3" maxlength="${BLURB_MAX}"
+                  class="mt-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  >${esc(store.blurb ?? '')}</textarea>
+        <p id="blurb-count" class="mt-1 text-right text-xs text-neutral-400">0 / ${BLURB_MAX}</p>
+      </div>
+
+      <p id="save-msg" class="mt-4 hidden rounded-lg p-3 text-sm"></p>
+      <button id="save" class="btn-primary mt-4 w-full">Save profile</button>
+    </div>`);
+
+  const picks = { banner: null, logo: null };
+  for (const kind of ['banner', 'logo']) {
+    document.getElementById(`pick-${kind}`).addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const limits = ASSET_LIMITS[kind];
+      if (!ACCEPTED.includes(file.type)) {
+        e.target.value = '';
+        return inline(`${limits.label}: use a JPEG, PNG or WebP image.`, false);
+      }
+      if (file.size > limits.maxBytes) {
+        e.target.value = '';
+        return inline(`${limits.label} is over the ${limits.maxBytes / 1024 / 1024} MB limit.`, false);
+      }
+      picks[kind] = await shrinkToWebp(file, limits.maxDim);
+      inline(`${limits.label} ready — remember to save.`, true);
+    });
+  }
+
+  const blurbEl = document.getElementById('blurb');
+  const counter = document.getElementById('blurb-count');
+  const syncCount = () => (counter.textContent = `${blurbEl.value.length} / ${BLURB_MAX}`);
+  blurbEl.addEventListener('input', syncCount);
+  syncCount();
+
+  const msg = document.getElementById('save-msg');
+  function inline(text, ok) {
+    msg.textContent = text;
+    msg.className = `mt-4 rounded-lg p-3 text-sm ${ok
+      ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`;
+  }
+
+  document.getElementById('save').addEventListener('click', async () => {
+    const btn = document.getElementById('save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      // Overwrite the stable path so replacement is idempotent — the old
+      // object is replaced, never accumulated.
+      const patch = {};
+      for (const kind of ['banner', 'logo']) {
+        if (!picks[kind]) continue;
+        const path = `${storeId}/${kind}.webp`;
+        const { error: upErr } = await supabase.storage
+          .from('store-assets')
+          .upload(path, picks[kind], { upsert: true, contentType: picks[kind].type });
+        if (upErr) throw new Error(`${ASSET_LIMITS[kind].label} upload failed: ${upErr.message}`);
+        patch[`${kind}_path`] = path;
+      }
+      patch.blurb = blurbEl.value.trim() || null;
+
+      const { error: dbErr } = await supabase.from('stores').update(patch).eq('id', storeId);
+      if (dbErr) throw new Error(`Could not save: ${dbErr.message}`);
+
+      inline('Saved. Your store page updates at the next site update.', true);
+      picks.banner = picks.logo = null;
+    } catch (e) {
+      inline(e.message, false);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save profile';
+    }
+  });
 }
 
 // ---------------------------------------------------------------- drafts

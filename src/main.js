@@ -7,7 +7,7 @@ import { cartPage } from './pages/cart.js';
 import { checkoutPage } from './pages/checkout.js';
 import { orderPage, ordersPage } from './pages/order.js';
 import { signInPage, signUpPage, forgotPage, accountPage } from './pages/account.js';
-import { storePage, storeProductsPage } from './pages/store.js';
+import { storePage, storeProductsPage, storeProfilePage } from './pages/store.js';
 import { storefrontPage } from './pages/storefront.js';
 import { termsPage, privacyPage, returnsPage } from './pages/legal.js';
 import { initAuth, onAuthChange } from './lib/auth.js';
@@ -29,6 +29,9 @@ route('/forgot', forgotPage);
 route('/account', accountPage);
 route('/store', storePage);
 route('/store/products', storeProductsPage);
+// Owner pages — registered BEFORE /store/:slug so first-match routing never
+// treats "products" or "profile" as a store slug.
+route('/store/profile', storeProfilePage);
 // Public per-store page — registered AFTER the static /store routes above so
 // the router (first-match, registration order) never treats "products" as a slug.
 route('/store/:slug', storefrontPage);

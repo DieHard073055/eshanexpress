@@ -135,4 +135,98 @@ describe('store portal', { skip: URL && KEY ? false : 'no .env' }, () => {
     const r = await rest('product_drafts?select=id', 'customer');
     assert.deepEqual(r.body, [], 'drafts leaked to a customer');
   });
+
+  // ------------------------------------------------------ store decoration
+  test('owner can update only decoration columns on their own store', async () => {
+    const before = (await rest(`stores?select=blurb&id=eq.${ids.store}`, 'owner')).body[0];
+    const next = before.blurb === 'RLS test blurb' ? null : 'RLS test blurb';
+
+    const r = await rest(`stores?id=eq.${ids.store}`, 'owner', {
+      method: 'PATCH', body: JSON.stringify({ blurb: next }),
+    });
+    assert.ok([200, 204].includes(r.status), `owner update refused: ${JSON.stringify(r.body)}`);
+
+    const check = (await rest(`stores?select=blurb&id=eq.${ids.store}`, 'owner')).body[0];
+    assert.equal(check.blurb, next, 'owner blurb update did not apply');
+
+    await rest(`stores?id=eq.${ids.store}`, 'admin', {
+      method: 'PATCH', body: JSON.stringify({ blurb: before.blurb }),
+    });
+  });
+
+  test('owner cannot change their own store slug or name (trigger)', async () => {
+    const original = (await rest(`stores?select=slug,name&id=eq.${ids.store}`, 'owner')).body[0];
+
+    const r = await rest(`stores?id=eq.${ids.store}`, 'owner', {
+      method: 'PATCH', body: JSON.stringify({ slug: `${original.slug}-hacked` }),
+    });
+    assert.ok([400, 403].includes(r.status),
+      `expected the guard trigger to raise, got ${r.status}: ${JSON.stringify(r.body)}`);
+
+    const check = (await rest(`stores?select=slug,name&id=eq.${ids.store}`, 'owner')).body[0];
+    assert.equal(check.slug, original.slug, 'owner changed the slug');
+    assert.equal(check.name, original.name);
+  });
+
+  test('owner cannot write another store\'s row', async () => {
+    const [b] = (await rest('stores', 'admin', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ slug: `rls-test-b-${Date.now()}`, name: 'RLS Test Store B' }),
+    })).body;
+
+    const r = await rest(`stores?id=eq.${b.id}`, 'owner', {
+      method: 'PATCH', body: JSON.stringify({ blurb: 'not yours' }),
+    });
+    const check = (await rest(`stores?select=blurb&id=eq.${b.id}`, 'admin')).body[0];
+    assert.notEqual(check.blurb, 'not yours', 'owner wrote store B\'s row');
+
+    await rest(`stores?id=eq.${b.id}`, 'admin', { method: 'DELETE' });
+    void r;
+  });
+
+  test('owner cannot upload to another store\'s storage folder', async () => {
+    const [b] = (await rest('stores', 'admin', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ slug: `rls-test-c-${Date.now()}`, name: 'RLS Test Store C' }),
+    })).body;
+
+    const r = await fetch(`${URL}/storage/v1/object/store-assets/${b.id}/banner.webp`, {
+      method: 'POST',
+      headers: {
+        apikey: KEY, Authorization: `Bearer ${tok.owner}`,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: new Uint8Array([0x52, 0x49, 0x46, 0x46]), // minimal bytes; RLS fires first
+    });
+    assert.ok([400, 403].includes(r.status),
+      `cross-store upload was not refused: HTTP ${r.status}`);
+
+    await rest(`stores?id=eq.${b.id}`, 'admin', { method: 'DELETE' });
+  });
+
+  test('owner can upload to their own storage folder, and replace it', async () => {
+    const path = `${ids.store}/rls-test.webp`;
+    const put = (token) => fetch(`${URL}/storage/v1/object/store-assets/${path}`, {
+      method: 'POST',
+      headers: {
+        apikey: KEY, Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]),
+    });
+
+    try {
+      const first = await put(tok.owner);
+      assert.ok([200, 201].includes(first.status),
+        `own-folder upload refused: HTTP ${first.status}`);
+      const second = await put(tok.owner);
+      assert.ok([200, 201].includes(second.status),
+        `replacement upload refused: HTTP ${second.status}`);
+    } finally {
+      await fetch(`${URL}/storage/v1/object/store-assets/${path}`, {
+        method: 'DELETE',
+        headers: { apikey: KEY, Authorization: `Bearer ${tok.owner}` },
+      });
+    }
+  });
 });
