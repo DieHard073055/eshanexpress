@@ -1276,7 +1276,9 @@ $('loadApps').addEventListener('click', async () => {
       banner('bad', `Could not record that decision (${r.status}).`);
       return;
     }
-    banner('ok', `${status === 'approved' ? 'Approved' : 'Rejected'} "${a.store_name}".`
+    // esc(): store_name is applicant-supplied text and banner() assigns to
+    // innerHTML, so an unescaped name would run script in the admin tool.
+    banner('ok', `${status === 'approved' ? 'Approved' : 'Rejected'} "${esc(a.store_name)}".`
       + (status === 'approved'
         ? ' Now run the SQL shown above in the Supabase SQL editor to create the store.'
         : ''), 12000);
