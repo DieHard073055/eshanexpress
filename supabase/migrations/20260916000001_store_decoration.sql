@@ -71,10 +71,14 @@ insert into storage.buckets (id, name, public)
   values ('store-assets', 'store-assets', true)
   on conflict (id) do nothing;
 
--- The objects table already has RLS from the other buckets; force it too so
--- the table owner cannot silently bypass policies either.
-alter table storage.objects enable row level security;
-alter table storage.objects force row level security;
+-- storage.objects already has RLS enabled (verified on the live project), and
+-- it is Supabase's table, not ours — owned by supabase_storage_admin, which is
+-- the role the Storage API itself runs as. FORCE is deliberately NOT set here:
+-- it would apply policies to that owner too, changing behaviour for the
+-- existing receipts and draft-images buckets, and receipts are the customer's
+-- proof of payment. The project's own tables are forced (rls_policies.sql);
+-- a shared Supabase-managed table is not ours to reconfigure as a side effect
+-- of adding a bucket.
 
 create policy store_assets_read on storage.objects
   for select
