@@ -409,11 +409,27 @@ export async function storeProfilePage() {
       const patch = {};
       for (const kind of ['banner', 'logo']) {
         if (!picks[kind]) continue;
-        const path = `${storeId}/${kind}.webp`;
+        // shrinkToWebp returns the ORIGINAL file when the browser cannot
+        // decode it, or when webp came out larger — so the bytes are not
+        // always webp. Take the extension from the blob's real type, or the
+        // path would claim .webp over png/jpeg bytes.
+        const ext = { 'image/webp': 'webp', 'image/png': 'png',
+                      'image/jpeg': 'jpg' }[picks[kind].type] ?? 'webp';
+        const path = `${storeId}/${kind}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('store-assets')
           .upload(path, picks[kind], { upsert: true, contentType: picks[kind].type });
         if (upErr) throw new Error(`${ASSET_LIMITS[kind].label} upload failed: ${upErr.message}`);
+
+        // Upsert only overwrites the SAME path. Switching format (png -> webp)
+        // would otherwise strand the old object against the store's quota, so
+        // drop any sibling with a different extension. Best-effort: a failure
+        // here must not lose the upload that just succeeded.
+        const stale = ['webp', 'png', 'jpg']
+          .filter((x) => x !== ext)
+          .map((x) => `${storeId}/${kind}.${x}`);
+        await supabase.storage.from('store-assets').remove(stale).catch(() => {});
+
         patch[`${kind}_path`] = path;
       }
       patch.blurb = blurbEl.value.trim() || null;

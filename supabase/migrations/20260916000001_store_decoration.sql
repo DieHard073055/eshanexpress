@@ -18,25 +18,38 @@ create policy stores_owner_update on stores
   with check (auth_role() = 'store_owner' and id = (select auth_store_id()));
 
 -- Which columns: anything outside decoration is admin-only. Modelled on
--- guard_profile_update; null-safe comparisons so a first-time set
--- (null -> value) is allowed.
+-- guard_profile_update, with every comparison `is distinct from` — plain
+-- `<>` yields NULL (not true) when either side is NULL, so a guard written
+-- with `<>` silently stops firing the moment a compared column becomes
+-- nullable.
+--
+-- The comparison is an ALLOWLIST: it rebuilds the row from OLD, overlaying
+-- only the three decoration columns, and rejects if that does not equal NEW.
+-- A denylist of named columns would silently let a future column through.
 create or replace function guard_store_owner_update()
 returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
+declare
+  permitted stores;
 begin
   if is_admin() then
     return new;
   end if;
-  if new.id <> old.id
-     or new.slug       <> old.slug
-     or new.name       <> old.name
-     or new.created_at is distinct from old.created_at
-  then
+
+  -- Everything the owner may change, overlaid onto the stored row. If NEW
+  -- differs from this in any other way, some non-decoration column moved.
+  permitted             := old;
+  permitted.banner_path := new.banner_path;
+  permitted.logo_path   := new.logo_path;
+  permitted.blurb       := new.blurb;
+
+  if new is distinct from permitted then
     raise exception 'only banner, logo and blurb are owner-editable';
   end if;
+
   return new;
 end;
 $$;

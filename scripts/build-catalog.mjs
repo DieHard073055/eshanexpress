@@ -290,6 +290,17 @@ if (SUPA_URL && SUPA_SECRET) {
       for (const kind of ['banner', 'logo']) {
         const path = row[`${kind}_path`];
         if (!path) continue; // no decoration yet is not an error
+
+        // banner_path is owner-writable, so it is untrusted input even though
+        // the portal only ever writes "{store_id}/{kind}.webp". encodeURI does
+        // NOT escape "../", so an owner who PATCHed a traversal path directly
+        // over REST could otherwise point this fetch outside the bucket — and
+        // it runs with the secret key. Accept only the shape the portal writes.
+        if (!/^[0-9a-f-]{36}\/(banner|logo)\.(webp|jpe?g|png)$/i.test(path)) {
+          warn(`store "${store.slug}": ignoring unexpected ${kind}_path "${path}"`);
+          continue;
+        }
+
         try {
           const img = await fetch(
             `${SUPA_URL}/storage/v1/object/public/store-assets/${encodeURI(path)}`,
