@@ -8,7 +8,7 @@
  * Requires .env with VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY,
  * and the rlstest.* users seeded. Skips cleanly if either is missing.
  */
-import { test, before, describe } from 'node:test';
+import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -441,5 +441,22 @@ describe('RLS policy enforcement', { skip: configured ? false : 'no .env — ski
       const r = await rest(`rpc/${fn}`, { method: 'POST', body: {} });
       assert.ok(r.status >= 400, `${fn} is callable by anon`);
     }
+  });
+
+  // Nothing the suite creates may survive the run — leftover orders skew the
+  // §4 analytics and stranded reservations block stock. Patterns are scoped
+  // to this suite's unique prefixes (T- orders, the one draft, RLS-*
+  // fixtures), so a crashed earlier run's strays are swept up too. The
+  // stock fixtures are recreated by before() on the next run.
+  after(async () => {
+    await rest('orders?order_number=like.T-*', { as: 'admin', method: 'DELETE' });
+    if (ids.draft) await rest(`product_drafts?id=eq.${ids.draft}`, { as: 'admin', method: 'DELETE' });
+    await rest('stock_reservations?sku=like.RLS-*', { as: 'admin', method: 'DELETE' });
+    await rest('product_stock?sku=like.RLS-*', { as: 'admin', method: 'DELETE' });
+
+    const ordersLeft = await rest('orders?select=id&order_number=like.T-*', { as: 'admin' });
+    assert.deepEqual(ordersLeft.body, [], 'T- test orders left behind');
+    const reservedLeft = await rest('stock_reservations?select=sku&sku=like.RLS-*', { as: 'admin' });
+    assert.deepEqual(reservedLeft.body, [], 'RLS- reservations left behind');
   });
 });

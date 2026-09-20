@@ -6,7 +6,7 @@
  * bcrypt hash is stored, so the owner cannot read the code from the row they
  * legitimately have RLS access to.
  */
-import { test, before, describe } from 'node:test';
+import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -178,5 +178,14 @@ describe('handover code', { skip: URL && KEY ? false : 'no .env' }, () => {
       method: 'POST', body: JSON.stringify({ p_order_id: id, p_reason: 'let me through' }),
     });
     assert.notEqual(r.ok, true);
+  });
+
+  // The suite's orders exist only to be attacked; nothing may survive the
+  // run. The pattern is scoped to this suite's HT- prefix (PostgREST `like`
+  // wildcards), so a crashed earlier run's strays are swept up too.
+  after(async () => {
+    await rest(`orders?order_number=like.HT-*`, 'admin', { method: 'DELETE' });
+    const left = await rest(`orders?select=id&order_number=like.HT-*`, 'admin');
+    assert.deepEqual(left, [], 'HT- test orders left behind');
   });
 });
