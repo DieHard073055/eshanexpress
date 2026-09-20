@@ -477,6 +477,30 @@ direct edits (release plan §3):
   are absent from the baked catalog, the owner portal cannot list them;
   un-hiding is an admin action in the product editor.
 
+### Owner order analytics
+
+The portal shows revenue and order counts above the queue (release plan
+§4). The definitions live in `src/lib/analytics.js` — a pure module with no
+DOM or Supabase imports, so `tests/analytics.test.mjs` attacks the
+definitions rather than the UI.
+
+**Only `fulfilled` counts as revenue.** This is deliberate and worth not
+"fixing" later: `confirmed` means paid but not yet handed over, so counting
+it would overstate earnings and, worse, make the figure move *backwards*
+when an order is later declined or cancelled. `confirmed`,
+`ready_for_pickup` and `shipped` feed the awaiting-action count and nothing
+else. The UI states the rule in one line beneath the numbers.
+
+The month boundary is the **viewer's local month**, computed client-side
+from `fulfilled_at`; no timezone column was added for this. A fulfilled
+order with a null `fulfilled_at` counts toward all-time but not the month.
+
+One query (`total_cents, status, fulfilled_at, created_at`) runs in
+parallel with the queue query and is already scoped to the owner's store by
+RLS — no store filter in the aggregation. With no fulfilled orders the
+strip renders "No completed orders yet" rather than `MVR 0.00` in large
+type, and a stats failure hides the strip instead of blocking the queue.
+
 ### Preorder items
 
 Items sourced from overseas carry `leadTimeDays` and a `maxPerOrder` soft cap
